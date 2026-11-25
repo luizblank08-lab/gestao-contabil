@@ -2,6 +2,14 @@
 const { app, BrowserWindow, shell, ipcMain, Menu } = require('electron');
 const path = require('path');
 
+// A identificação do navegador (User-Agent) inclui o nome do app, "Gestão Contábil".
+// Acentos nesse cabeçalho chegam ao servidor de login num formato que o banco recusa
+// ("Database error granting user"). Por isso, a identificação vai sem acentos.
+app.userAgentFallback = app.userAgentFallback
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^\x20-\x7E]/g, '');
+
 // Impede abrir duas cópias do app ao mesmo tempo
 if (!app.requestSingleInstanceLock()) {
   app.quit();
