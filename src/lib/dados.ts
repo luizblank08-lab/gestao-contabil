@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import { useTempoReal } from './tempoReal';
-import type { Empresa, Membro } from './tipos';
+import type { Empresa, Membro, Modelo } from './tipos';
 import { avisoErro } from './avisos';
 
 export function useMembros() {
@@ -31,4 +31,18 @@ export function useEmpresas() {
   useEffect(() => { carregar(); }, [carregar]);
   useTempoReal(['empresas', 'membro_empresas'], carregar);
   return { empresas, carregando, recarregar: carregar };
+}
+
+export function useModelos() {
+  const [modelos, setModelos] = useState<Modelo[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const carregar = useCallback(async () => {
+    const { data, error } = await supabase().from('modelos_checklist').select('*').order('area').order('ordem').order('nome');
+    if (error) avisoErro(error);
+    setModelos((data as Modelo[]) ?? []);
+    setCarregando(false);
+  }, []);
+  useEffect(() => { carregar(); }, [carregar]);
+  useTempoReal(['modelos_checklist'], carregar);
+  return { modelos, carregando, recarregar: carregar };
 }

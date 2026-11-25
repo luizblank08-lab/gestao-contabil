@@ -15,7 +15,7 @@ obrigações Fiscais, Contábeis e de Departamento Pessoal de cada empresa atend
 ## Etapas
 
 - [x] **Etapa 1** — Conta do escritório, login, perfis, equipe, cadastro de empresas, importação de planilha
-- [ ] Etapa 2 — Modelos de checklist
+- [x] **Etapa 2** — Modelos de checklist (vencimentos com feriados nacionais, aplicação automática, exceções por empresa)
 - [ ] Etapa 3 — Checklists do mês
 - [ ] Etapa 4 — Painéis
 - [ ] Etapa 5 — Notificações, bandeja, iniciar com o Windows, atualização automática
@@ -58,6 +58,7 @@ Testes automáticos:
 npm test                     # validação de CNPJ, formatos e leitura de planilha
 npm run test:banco           # regras de acesso do banco (precisa de PostgreSQL local)
 node testes/e2e-etapa1.cjs   # telas de ponta a ponta (precisa de: npx supabase start; npx vite)
+node testes/e2e-etapa2.cjs   # telas da Etapa 2 (modelos e obrigações)
 ```
 
 ## Gerar o instalador

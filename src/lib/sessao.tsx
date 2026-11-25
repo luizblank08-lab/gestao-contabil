@@ -1,5 +1,5 @@
 // Guarda quem está conectado, seu cadastro (membro) e o escritório.
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import type { Escritorio, Membro } from './tipos';
@@ -25,7 +25,11 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
   const [membro, setMembro] = useState<Membro | null>(null);
   const [escritorio, setEscritorio] = useState<Escritorio | null>(null);
 
+  // Cada carregamento recebe um número; respostas de carregamentos antigos são ignoradas
+  // (evita que uma resposta atrasada apague um escritório recém-criado).
+  const ultimaCarga = useRef(0);
   const carregarPerfil = useCallback(async (s: Session | null) => {
+    const minha = ++ultimaCarga.current;
     if (!s) {
       setMembro(null);
       setEscritorio(null);
@@ -33,13 +37,14 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
     }
     const sb = supabase();
     const { data: m } = await sb.from('membros').select('*').eq('id', s.user.id).maybeSingle();
-    setMembro((m as Membro) ?? null);
+    let e: Escritorio | null = null;
     if (m) {
-      const { data: e } = await sb.from('escritorios').select('*').eq('id', m.escritorio_id).maybeSingle();
-      setEscritorio((e as Escritorio) ?? null);
-    } else {
-      setEscritorio(null);
+      const r = await sb.from('escritorios').select('*').eq('id', m.escritorio_id).maybeSingle();
+      e = (r.data as Escritorio) ?? null;
     }
+    if (minha !== ultimaCarga.current) return;
+    setMembro((m as Membro) ?? null);
+    setEscritorio(e);
   }, []);
 
   useEffect(() => {
@@ -90,7 +95,11 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
       escritorio,
       ehGestor,
       minhasAreas,
-      recarregar: () => carregarPerfil(sessao),
+      // Sempre usa a sessão atual (não a de quando a tela foi desenhada)
+      recarregar: async () => {
+        const { data } = await supabase().auth.getSession();
+        await carregarPerfil(data.session);
+      },
       sair: async () => {
         await supabase().auth.signOut();
       },

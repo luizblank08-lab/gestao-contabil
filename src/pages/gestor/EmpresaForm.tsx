@@ -1,7 +1,7 @@
 // Formulário de cadastro/edição de empresa (somente Gestor).
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Autocomplete, Button, Chip, Divider, Group, Modal, Radio, Select, SimpleGrid, Stack, Switch, Text, Textarea, TextInput,
+  Alert, Autocomplete, Badge, Button, Tabs, Chip, Divider, Group, Modal, Radio, Select, SimpleGrid, Stack, Switch, Text, Textarea, TextInput,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
@@ -14,6 +14,9 @@ import { supabase } from '../../lib/supabase';
 import { avisoErro, avisoSucesso } from '../../lib/avisos';
 import type { Empresa, Membro } from '../../lib/tipos';
 import { useSessao } from '../../lib/sessao';
+import { useModelos } from '../../lib/dados';
+import { obrigacoesDaEmpresa } from '../../lib/modelos';
+import { ObrigacoesEmpresa, useExcecoes } from './ObrigacoesEmpresa';
 
 type Valores = {
   codigo: string;
@@ -71,6 +74,9 @@ export function EmpresaForm({
   const ativas = escritorio?.areas_ativas ?? [];
   const [salvando, setSalvando] = useState(false);
   const [municipios, setMunicipios] = useState<string[]>([]);
+  const [aba, setAba] = useState<string | null>('dados');
+  const { modelos } = useModelos();
+  const { excecoes, setExcecoes } = useExcecoes(empresa?.id ?? null);
 
   const form = useForm<Valores>({
     initialValues: valoresIniciais(empresa),
@@ -167,6 +173,15 @@ export function EmpresaForm({
     !form.values.municipio.trim() && 'município',
   ].filter(Boolean) as string[];
 
+  const dadosRegra = {
+    regime: (form.values.regime || null) as Empresa['regime'],
+    atividades: form.values.atividades as Empresa['atividades'],
+    possui_funcionarios: form.values.possui_funcionarios === 'sim',
+  };
+  const qtdObrigacoes = obrigacoesDaEmpresa(
+    modelos.filter((m) => m.ativo && (escritorio?.areas_ativas ?? []).includes(m.area)), dadosRegra, excecoes,
+  ).filter((o) => o.aplicada).length;
+
   return (
     <Modal opened={aberto} onClose={aoFechar} size="xl" title={<Text fw={600} size="lg">{empresa ? 'Editar empresa' : 'Nova empresa'}</Text>}>
       <form noValidate onSubmit={form.onSubmit(salvar)}>
@@ -177,6 +192,13 @@ export function EmpresaForm({
               mas os checklists automáticos dependem desses dados.
             </Alert>
           )}
+          <Tabs value={aba} onChange={setAba}>
+            <Tabs.List mb="md">
+              <Tabs.Tab value="dados">Dados da empresa</Tabs.Tab>
+              <Tabs.Tab value="obrigacoes" rightSection={<Badge size="xs" variant="light">{qtdObrigacoes}</Badge>}>Obrigações</Tabs.Tab>
+            </Tabs.List>
+            <Tabs.Panel value="dados">
+          <Stack gap="md">
           <SimpleGrid cols={{ base: 1, sm: 4 }}>
             <TextInput label="Código" description="Código interno do escritório" {...form.getInputProps('codigo')} />
             <TextInput
@@ -236,6 +258,12 @@ export function EmpresaForm({
           <Textarea label="Observações" autosize minRows={2} maxRows={6} {...form.getInputProps('observacoes')} />
           <Switch label={form.values.ativa ? 'Empresa ativa' : 'Empresa inativa (não gera checklists)'}
             checked={form.values.ativa} onChange={(e) => form.setFieldValue('ativa', e.currentTarget.checked)} />
+          </Stack>
+            </Tabs.Panel>
+            <Tabs.Panel value="obrigacoes">
+              <ObrigacoesEmpresa empresaId={empresa?.id ?? null} dados={dadosRegra} modelos={modelos} excecoes={excecoes} setExcecoes={setExcecoes} />
+            </Tabs.Panel>
+          </Tabs>
 
           <Group justify="space-between" mt="sm">
             {empresa ? <Button variant="subtle" color="red" onClick={excluir}>Excluir empresa</Button> : <span />}

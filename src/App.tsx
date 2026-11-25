@@ -12,6 +12,7 @@ import { Layout } from './Layout';
 import { Empresas } from './pages/gestor/Empresas';
 import { Equipe } from './pages/gestor/Equipe';
 import { Configuracoes } from './pages/gestor/Configuracoes';
+import { Modelos } from './pages/gestor/Modelos';
 import { MinhasEmpresas } from './pages/usuario/MinhasEmpresas';
 import { Perfil } from './pages/usuario/Perfil';
 import { EmBreve } from './components/EmBreve';
@@ -56,7 +57,7 @@ function Rotas() {
             <Route path="/painel" element={<EmBreve titulo="Painel" etapa={4} descricao="Resumo do mês com itens feitos, pendentes e atrasados, grade de empresas × obrigações e desempenho por responsável." />} />
             <Route path="/empresas" element={<Empresas />} />
             <Route path="/checklists" element={<EmBreve titulo="Checklists do mês" etapa={3} descricao="Os checklists de cada competência, gerados automaticamente para cada empresa ativa e já distribuídos aos responsáveis." />} />
-            <Route path="/modelos" element={<EmBreve titulo="Modelos de checklist" etapa={2} descricao="Itens fiscais, contábeis e de DP com periodicidade, vencimento e regras de aplicação — tudo editável." />} />
+            <Route path="/modelos" element={<Modelos />} />
             <Route path="/equipe" element={<Equipe />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
             <Route path="/perfil" element={<Perfil />} />

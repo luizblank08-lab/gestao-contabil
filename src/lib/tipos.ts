@@ -46,3 +46,28 @@ export type Empresa = {
   criado_em: string;
   atualizado_em: string;
 };
+
+export type Periodicidade = 'mensal' | 'trimestral' | 'anual';
+export type TipoVencimento = 'dia_fixo' | 'dia_util' | 'ultimo_dia_util';
+export type Ajuste = 'antecipa' | 'posterga' | 'nenhum';
+
+export type Modelo = {
+  id: string;
+  escritorio_id: string;
+  codigo_padrao: string | null;
+  nome: string;
+  descricao: string | null;
+  area: Area;
+  periodicidade: Periodicidade;
+  tipo_vencimento: TipoVencimento;
+  dia: number | null;
+  meses_apos: number;
+  ajuste: Ajuste;
+  regimes: Regime[];
+  atividades: Atividade[];
+  somente_com_funcionarios: boolean;
+  ativo: boolean;
+  ordem: number;
+};
+
+export type Excecao = { empresa_id: string; modelo_id: string; incluir: boolean };

@@ -1,5 +1,7 @@
 // Empresas que o usuário atende (a lista já vem filtrada pelo banco de dados).
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useTempoReal } from '../../lib/tempoReal';
 import { Anchor, Badge, Card, Group, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
 import { IconMail, IconPhone, IconSearch, IconUser } from '@tabler/icons-react';
 import { useEmpresas, useMembros } from '../../lib/dados';
@@ -14,6 +16,16 @@ export function MinhasEmpresas() {
   const { empresas, carregando } = useEmpresas();
   const { membros } = useMembros();
   const [busca, setBusca] = useState('');
+  // Quantas obrigações de cada área por empresa (o banco já entrega só as áreas desta pessoa)
+  const [qtd, setQtd] = useState<Map<string, number>>(new Map());
+  const carregarQtd = useCallback(async () => {
+    const { data } = await supabase().from('empresa_obrigacoes').select('empresa_id, area').eq('aplicada', true);
+    const m = new Map<string, number>();
+    for (const r of (data ?? []) as { empresa_id: string; area: string }[]) m.set(`${r.empresa_id}:${r.area}`, (m.get(`${r.empresa_id}:${r.area}`) ?? 0) + 1);
+    setQtd(m);
+  }, []);
+  useEffect(() => { carregarQtd(); }, [carregarQtd]);
+  useTempoReal(['modelos_checklist', 'empresa_item_excecoes', 'empresas'], carregarQtd);
   const nome = (id: string | null) => membros.find((m) => m.id === id)?.nome ?? 'Não definido';
 
   const lista = useMemo(() => {
@@ -59,6 +71,7 @@ export function MinhasEmpresas() {
                   <Text key={a} size="sm">
                     <Badge size="xs" color={corArea(a)} variant="light" mr={6}>{rotuloArea(a)}</Badge>
                     Responsável: <b>{respDaArea(e, a) === membro?.id ? 'Você' : nome(respDaArea(e, a))}</b>
+                    <Text span c="dimmed"> · {qtd.get(`${e.id}:${a}`) ?? 0} obrigação(ões)</Text>
                   </Text>
                 ))}
                 {(e.contato_nome || e.contato_telefone || e.contato_email) && (
