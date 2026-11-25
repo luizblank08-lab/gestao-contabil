@@ -75,6 +75,7 @@ export function EsqueciSenha() {
                 <PasswordInput label="Nova senha" description="Pelo menos 8 caracteres" value={senha} onChange={(e) => setSenha(e.currentTarget.value)} />
                 <PasswordInput label="Repita a nova senha" value={senha2} onChange={(e) => setSenha2(e.currentTarget.value)} />
                 {erro && <Alert color="red">{erro}</Alert>}
+                <Text size="xs" c="dimmed">Se o código não chegar em alguns minutos, peça ao Gestor do escritório para redefinir sua senha.</Text>
                 <Button type="submit" loading={aguarde}>Salvar nova senha</Button>
                 <Anchor component="button" type="button" size="sm" onClick={() => enviarCodigo()}>Reenviar código</Anchor>
               </Stack>

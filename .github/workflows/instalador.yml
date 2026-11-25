@@ -22,11 +22,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Montar o app (com a conexão do escritório embutida)
+      - name: Montar o app (a conexão do escritório vem do arquivo .env.production)
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          VITE_SUPABASE_KEY: ${{ vars.SUPABASE_KEY }}
       - name: Gerar instalador
         run: npx electron-builder --win --publish never
       - uses: actions/upload-artifact@v4

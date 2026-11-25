@@ -176,4 +176,11 @@ select pg_temp.como('00000000-0000-0000-0000-00000000000b');
 select pg_temp.check(public.importar_empresas('[{"codigo":"410","razao_social":"DO B"}]'::jsonb)
   = '{"criadas":1,"atualizadas":0}'::jsonb, 'mesmo código em outro escritório não mexe no escritório A');
 
+-- Excluir o escritório inteiro funciona (e apaga tudo dele)
+reset role;
+delete from public.escritorios where nome = 'Escritório B';
+select pg_temp.check(not exists (select 1 from public.empresas where razao_social in ('Empresa do B','DO B')), 'excluir escritório apaga os dados dele');
+select pg_temp.check(not exists (select 1 from public.membros where id = '00000000-0000-0000-0000-00000000000b'), 'excluir escritório apaga a equipe dele');
+select pg_temp.check((select count(*) from public.empresas) > 0, 'outros escritórios continuam intactos');
+
 \echo TODOS OS TESTES PASSARAM

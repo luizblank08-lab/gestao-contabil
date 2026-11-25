@@ -62,11 +62,8 @@ node testes/e2e-etapa1.cjs   # telas de ponta a ponta (precisa de: npx supabase 
 
 ## Gerar o instalador
 
-O GitHub gera o `.exe` sozinho num computador Windows. Configure uma vez, em
-*Settings › Secrets and variables › Actions › Variables*:
+O GitHub gera o `.exe` sozinho num computador Windows. A conexão com o banco do escritório
+fica no arquivo `.env.production` (endereço e chave pública — nunca a chave secreta).
 
-- `SUPABASE_URL` = Project URL
-- `SUPABASE_KEY` = chave publishable
-
-Depois, em *Actions › Gerar instalador › Run workflow*. O arquivo aparece ao final da execução,
-em *Artifacts*. Para publicar uma versão oficial, crie uma etiqueta `v0.1.0`, `v0.2.0`…
+- **Teste:** *Actions › Gerar instalador › Run workflow*. O arquivo aparece em *Artifacts*.
+- **Versão oficial:** crie uma etiqueta `v0.1.0`, `v0.2.0`… — o instalador é publicado em *Releases*.
