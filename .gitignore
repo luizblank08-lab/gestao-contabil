@@ -8,3 +8,4 @@ supabase/functions/.ca-teste.crt
 supabase/functions/.env*
 supabase/.temp/
 supabase/.branches/
+instalador/
