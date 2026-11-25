@@ -77,6 +77,8 @@ export function traduzirErro(e: unknown): string {
   if (m.includes('token has expired') || m.includes('otp') && m.includes('invalid')) return 'Código inválido ou expirado. Peça um novo.';
   if (m.includes('rate limit') || m.includes('security purposes')) return 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.';
   if (m.includes('failed to fetch') || m.includes('network')) return 'Sem conexão com o servidor. Verifique sua internet.';
+  if (m.includes('database error') || m.includes('unexpected_failure') || m.includes('internal server error'))
+    return 'O servidor teve uma falha momentânea. Aguarde alguns segundos e tente de novo. Se continuar, avise o suporte.';
   if (m.includes('duplicate key') && m.includes('cnpj')) return 'Já existe uma empresa cadastrada com este CNPJ.';
   if (m.includes('row-level security') || m.includes('permission denied')) return 'Você não tem permissão para fazer isso.';
   return msg || 'Ocorreu um erro inesperado.';
