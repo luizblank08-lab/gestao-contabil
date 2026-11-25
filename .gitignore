@@ -1,0 +1,10 @@
+node_modules/
+dist/
+release/
+.env
+.env.local
+*.log
+supabase/functions/.ca-teste.crt
+supabase/functions/.env*
+supabase/.temp/
+supabase/.branches/

@@ -1,0 +1,42 @@
+# Gera o instalador do Windows (.exe) num computador Windows do GitHub.
+# - Ao enviar uma etiqueta de versão (ex.: v0.2.0), publica o instalador em "Releases".
+# - Também pode ser rodado à mão em Actions > "Gerar instalador" > Run workflow.
+name: Gerar instalador
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Montar o app (com a conexão do escritório embutida)
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_KEY: ${{ vars.SUPABASE_KEY }}
+      - name: Gerar instalador
+        run: npx electron-builder --win --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instalador-windows
+          path: release/*.exe
+          retention-days: 30
+      - name: Publicar em Releases (somente para etiquetas de versão)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/*.exe --title "Versão ${GITHUB_REF_NAME#v}" --generate-notes

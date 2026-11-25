@@ -1,0 +1,85 @@
+{
+  "name": "gestao-contabil",
+  "productName": "Gestão Contábil",
+  "version": "0.1.0",
+  "description": "Gestão de obrigações fiscais e contábeis para escritórios de contabilidade",
+  "main": "electron/main.cjs",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "build": "tsc --noEmit && vite build",
+    "start": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "test": "vitest run",
+    "test:banco": "bash supabase/tests/rodar.sh",
+    "sql:juntar": "bash supabase/juntar.sh"
+  },
+  "build": {
+    "appId": "br.com.gestaocontabil.app",
+    "productName": "Gestão Contábil",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Gestão Contábil",
+      "language": "1046"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.business",
+      "icon": "build/icon.png"
+    }
+  },
+  "dependencies": {
+    "@mantine/core": "^7.17.8",
+    "@mantine/form": "^7.17.8",
+    "@mantine/hooks": "^7.17.8",
+    "@mantine/modals": "^7.17.8",
+    "@mantine/notifications": "^7.17.8",
+    "@supabase/supabase-js": "^2.119.2",
+    "@tabler/icons-react": "^3.53.0",
+    "dayjs": "^1.11.23",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.6",
+    "read-excel-file": "^5.8.8"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.32",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^10.0.7",
+    "cross-env": "^10.1.0",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.5.33",
+    "postcss-preset-mantine": "^1.18.0",
+    "supabase": "^2.122.1",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9",
+    "wait-on": "^9.5.1"
+  }
+}
