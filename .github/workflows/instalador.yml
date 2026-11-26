@@ -1,12 +1,21 @@
 # Gera o instalador do Windows (.exe) num computador Windows do GitHub.
-# - Ao enviar uma etiqueta de versão (ex.: v0.2.0), publica o instalador em "Releases".
-# - Também pode ser rodado à mão em Actions > "Gerar instalador" > Run workflow.
+#
+# - "Run workflow" com "publicar" desmarcado: só gera o arquivo para teste (em Artifacts).
+# - "Run workflow" com "publicar" marcado (ou uma etiqueta v1.2.3): publica a versão em Releases.
+#   Os computadores com o app instalado baixam a versão nova sozinhos.
+#   Link fixo para instalar em computadores novos:
+#   https://github.com/luizblank08-lab/gestao-contabil/releases/latest/download/GestaoContabil-Setup.exe
 name: Gerar instalador
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      publicar:
+        description: 'Publicar esta versão para a equipe (atualização automática)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -14,6 +23,8 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      PUBLICAR: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.publicar }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,16 +35,29 @@ jobs:
       - run: npm test
       - name: Montar o app (a conexão do escritório vem do arquivo .env.production)
         run: npm run build
-      - name: Gerar instalador
+
+      - name: Gerar instalador (teste)
+        if: env.PUBLICAR != 'true'
         run: npx electron-builder --win --publish never
-      - uses: actions/upload-artifact@v4
-        with:
-          name: instalador-windows
-          path: release/*.exe
-          retention-days: 30
-      - name: Publicar em Releases (somente para etiquetas de versão)
-        if: startsWith(github.ref, 'refs/tags/v')
+
+      - name: Gerar e publicar a versão em Releases
+        if: env.PUBLICAR == 'true'
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Copiar com nome fixo (link permanente de download)
+        if: env.PUBLICAR == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release/*.exe --title "Versão ${GITHUB_REF_NAME#v}" --generate-notes
+        run: |
+          VERSAO=$(node -p "require('./package.json').version")
+          cp "release/GestaoContabil-Setup-${VERSAO}.exe" release/GestaoContabil-Setup.exe
+          gh release upload "v${VERSAO}" release/GestaoContabil-Setup.exe --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instalador-windows
+          path: release/GestaoContabil-Setup-*.exe
+          retention-days: 30

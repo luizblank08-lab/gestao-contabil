@@ -6,6 +6,7 @@ import { limparCnpj, mascaraCnpj, validarCnpj } from '../../lib/cnpj';
 import { conexaoEmbutida, lerConexao, salvarConexao, supabase } from '../../lib/supabase';
 import { avisoErro, avisoSucesso } from '../../lib/avisos';
 import { useSessao } from '../../lib/sessao';
+import { StatusAtualizacao } from '../../components/AvisoAtualizacao';
 
 export function Configuracoes() {
   const { escritorio, recarregar } = useSessao();
@@ -67,6 +68,7 @@ export function Configuracoes() {
         <Stack gap="xs">
           <Text fw={600}>Sobre</Text>
           <Text size="sm">Versão do aplicativo: <b>{versao || '—'}</b></Text>
+          <StatusAtualizacao />
           <Text size="sm">Banco de dados: <code>{lerConexao()?.url}</code></Text>
           {!conexaoEmbutida() && (
             <Alert color="gray" variant="light">

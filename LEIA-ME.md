@@ -63,10 +63,20 @@ node testes/e2e-etapa3-4.cjs # telas das Etapas 3 e 4 (checklists, anexos, pain�
 xvfb-run -a node testes/electron-salvar-anexo.cjs   # "Salvar como" no programa de computador
 ```
 
-## Gerar o instalador
+## Gerar o instalador e distribuir para a equipe
 
-O GitHub gera o `.exe` sozinho num computador Windows. A conexão com o banco do escritório
-fica no arquivo `.env.production` (endereço e chave pública — nunca a chave secreta).
+O GitHub gera o `.exe` num computador Windows. A conexão com o banco do escritório fica no
+arquivo `.env.production` (endereço e chave pública — nunca a chave secreta).
 
-- **Teste:** *Actions › Gerar instalador › Run workflow*. O arquivo aparece em *Artifacts*.
-- **Versão oficial:** crie uma etiqueta `v0.1.0`, `v0.2.0`… — o instalador é publicado em *Releases*.
+**Publicar uma versão nova** (todos os computadores se atualizam sozinhos):
+1. Aumente a versão em `package.json` (ex.: `0.3.1` → `0.4.0`).
+2. *Actions › Gerar instalador › Run workflow*, marque **publicar** e confirme.
+3. Em alguns minutos a versão aparece em *Releases*. Cada computador baixa ao abrir o app
+   (ou a cada 4 horas) e instala ao fechar — ou na hora, em "Reiniciar e atualizar".
+
+**Instalar em um computador novo:** baixe sempre a versão mais recente neste link fixo
+(o repositório precisa estar público):
+
+https://github.com/luizblank08-lab/gestao-contabil/releases/latest/download/GestaoContabil-Setup.exe
+
+**Só testar** (sem publicar): rode o mesmo fluxo com "publicar" desmarcado; o arquivo fica em *Artifacts*.

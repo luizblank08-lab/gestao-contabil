@@ -4,6 +4,7 @@ import { corArea, rotuloArea } from '../../lib/constantes';
 import { supabase } from '../../lib/supabase';
 import { avisoErro, avisoSucesso } from '../../lib/avisos';
 import { useSessao } from '../../lib/sessao';
+import { StatusAtualizacao } from '../../components/AvisoAtualizacao';
 
 export function Perfil() {
   const { membro, escritorio, ehGestor, minhasAreas, recarregar } = useSessao();
@@ -47,6 +48,12 @@ export function Perfil() {
             <TextInput label="Seu nome" style={{ flex: 1 }} value={nome} onChange={(e) => setNome(e.currentTarget.value)} />
             <Button variant="default" onClick={salvarNome}>Salvar nome</Button>
           </Group>
+        </Stack>
+      </Paper>
+      <Paper withBorder p="lg" radius="md">
+        <Stack gap="xs">
+          <Text fw={600}>Versão do aplicativo</Text>
+          <StatusAtualizacao />
         </Stack>
       </Paper>
       <Paper withBorder p="lg" radius="md">

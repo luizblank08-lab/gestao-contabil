@@ -18,6 +18,7 @@ import { Perfil } from './pages/usuario/Perfil';
 import { Painel } from './pages/gestor/Painel';
 import { ChecklistsMes } from './pages/gestor/ChecklistsMes';
 import { MinhasTarefas } from './pages/usuario/MinhasTarefas';
+import { AvisoAtualizacao } from './components/AvisoAtualizacao';
 
 function Rotas() {
   const { carregando, sessao, membro, ehGestor, sair } = useSessao();
@@ -85,6 +86,7 @@ export default function App() {
       <ProvedorSessao>
         <Rotas />
       </ProvedorSessao>
+      <AvisoAtualizacao />
     </HashRouter>
   );
 }

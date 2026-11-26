@@ -71,6 +71,62 @@ app.on('second-instance', () => {
 
 ipcMain.handle('app:versao', () => app.getVersion());
 
+// ---------------------------------------------------------------------
+// Atualização automática (versões publicadas no GitHub Releases)
+// Procura ao abrir e a cada 4 horas, baixa em segundo plano e instala ao fechar
+// o app — ou na hora, se a pessoa clicar em "Reiniciar e atualizar".
+// ---------------------------------------------------------------------
+let atualizador = null;
+let estadoAtualizacao = { estado: 'nenhuma' };
+function avisarJanela(estado) {
+  estadoAtualizacao = estado;
+  if (janela && !janela.isDestroyed()) janela.webContents.send('atualizacao', estado);
+}
+function iniciarAtualizacao() {
+  const teste = process.env.GC_TESTE_ATUALIZACAO; // usado só nos testes automáticos
+  if (!app.isPackaged && !teste) return;
+  try {
+    ({ autoUpdater: atualizador } = require('electron-updater'));
+  } catch {
+    return;
+  }
+  if (teste) {
+    atualizador.forceDevUpdateConfig = true;
+    atualizador.setFeedURL({ provider: 'generic', url: teste });
+  }
+  atualizador.autoDownload = true;
+  atualizador.autoInstallOnAppQuit = true;
+  atualizador.on('update-available', (i) => avisarJanela({ estado: 'baixando', versao: i.version }));
+  atualizador.on('download-progress', (p) => avisarJanela({ estado: 'baixando', versao: estadoAtualizacao.versao, progresso: Math.round(p.percent) }));
+  atualizador.on('update-downloaded', (i) => avisarJanela({ estado: 'pronta', versao: i.version }));
+  atualizador.on('update-not-available', () => { if (estadoAtualizacao.estado === 'verificando') avisarJanela({ estado: 'em_dia' }); });
+  atualizador.on('error', (e) => {
+    console.error('Atualização:', e && e.message);
+    // Falha ao procurar: avisa. Falha ao baixar (ex.: internet caiu): tenta de novo na próxima verificação.
+    if (estadoAtualizacao.estado === 'verificando') avisarJanela({ estado: 'erro' });
+    else if (estadoAtualizacao.estado === 'baixando') avisarJanela({ estado: 'nenhuma', ultimaVersaoEncontrada: estadoAtualizacao.versao });
+  });
+  const verificar = () =>
+    atualizador.checkForUpdates()
+      .then((r) => { if (r && r.downloadPromise) r.downloadPromise.catch(() => {}); return r; })
+      .catch(() => {});
+  verificarAgora = verificar;
+  setTimeout(verificar, 5000);
+  setInterval(verificar, 4 * 60 * 60 * 1000);
+}
+let verificarAgora = async () => {};
+ipcMain.handle('atualizacao:estado', () => estadoAtualizacao);
+ipcMain.handle('atualizacao:verificar', async () => {
+  if (!atualizador) return { estado: 'indisponivel' };
+  if (estadoAtualizacao.estado === 'pronta' || estadoAtualizacao.estado === 'baixando') return estadoAtualizacao;
+  avisarJanela({ estado: 'verificando' });
+  await verificarAgora();
+  return estadoAtualizacao;
+});
+ipcMain.handle('atualizacao:instalar', () => {
+  if (atualizador && estadoAtualizacao.estado === 'pronta') atualizador.quitAndInstall(false, true);
+});
+
 // Salvar anexo: abre a janela "Salvar como" do sistema com o nome original do arquivo
 ipcMain.handle('arquivo:salvar', async (_e, nome, dados) => {
   const seguro = String(nome || 'arquivo').replace(/[\\/:*?"<>|]/g, '_').slice(0, 200);
@@ -121,6 +177,7 @@ app.whenReady().then(() => {
     ])
   );
   criarJanela();
+  iniciarAtualizacao();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) criarJanela();
   });
