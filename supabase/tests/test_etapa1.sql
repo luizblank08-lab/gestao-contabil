@@ -154,12 +154,12 @@ select pg_temp.check((select count(*) from public.empresas where resp_fiscal_id 
 
 -- Importação por planilha
 select pg_temp.como('00000000-0000-0000-0000-00000000000a');
-select pg_temp.check(public.importar_empresas('[
+select pg_temp.check((public.importar_empresas('[
   {"codigo":"410","razao_social":"AGRO TESTE","regime":"presumido","resp_fiscal_id":"00000000-0000-0000-0000-0000000000f2","resp_contabil_id":"00000000-0000-0000-0000-00000000000c"},
   {"codigo":"212","razao_social":"SEM REGIME","regime":""}
-]'::jsonb) = '{"criadas":2,"atualizadas":0}'::jsonb, 'importa 2 empresas novas');
+]'::jsonb) - 'importacao_id') = '{"criadas":2,"atualizadas":0}'::jsonb, 'importa 2 empresas novas');
 select pg_temp.check((select not cadastro_completo from public.empresas where codigo = '410'), 'importada sem CNPJ fica como cadastro incompleto');
-select pg_temp.check(public.importar_empresas('[{"codigo":"410","razao_social":"AGRO TESTE LTDA","regime":""}]'::jsonb)
+select pg_temp.check((public.importar_empresas('[{"codigo":"410","razao_social":"AGRO TESTE LTDA","regime":""}]'::jsonb) - 'importacao_id')
   = '{"criadas":0,"atualizadas":1}'::jsonb, 'reimportar atualiza pelo código, sem duplicar');
 select pg_temp.check((select regime = 'presumido' and resp_fiscal_id is not null and razao_social = 'AGRO TESTE LTDA'
   from public.empresas where codigo = '410'), 'campos vazios na reimportação não apagam dados');
@@ -173,7 +173,7 @@ do $$ begin
   raise exception 'FALHOU: usuário importou';
 exception when sqlstate '42501' then raise notice 'ok - só o gestor importa'; end $$;
 select pg_temp.como('00000000-0000-0000-0000-00000000000b');
-select pg_temp.check(public.importar_empresas('[{"codigo":"410","razao_social":"DO B"}]'::jsonb)
+select pg_temp.check((public.importar_empresas('[{"codigo":"410","razao_social":"DO B"}]'::jsonb) - 'importacao_id')
   = '{"criadas":1,"atualizadas":0}'::jsonb, 'mesmo código em outro escritório não mexe no escritório A');
 
 -- Excluir o escritório inteiro funciona (e apaga tudo dele)

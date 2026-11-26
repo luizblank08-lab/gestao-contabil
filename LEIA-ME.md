@@ -60,6 +60,7 @@ npm run test:banco           # regras de acesso do banco (precisa de PostgreSQL 
 node testes/e2e-etapa1.cjs   # telas de ponta a ponta (precisa de: npx supabase start; npx vite)
 node testes/e2e-etapa2.cjs   # telas da Etapa 2 (modelos e obrigações)
 node testes/e2e-etapa3-4.cjs # telas das Etapas 3 e 4 (checklists, anexos, painéis)
+node testes/e2e-importacoes.cjs # histórico de importações com "Desfazer"
 xvfb-run -a node testes/electron-salvar-anexo.cjs   # "Salvar como" no programa de computador
 ```
 
