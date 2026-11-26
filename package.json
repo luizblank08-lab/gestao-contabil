@@ -1,7 +1,7 @@
 {
   "name": "gestao-contabil",
   "productName": "Gestão Contábil",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Gestão de obrigações fiscais e contábeis para escritórios de contabilidade",
   "main": "electron/main.cjs",
   "private": true,

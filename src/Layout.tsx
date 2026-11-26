@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { competenciaPadrao } from './lib/tarefas';
@@ -34,6 +34,8 @@ export function Layout() {
   const { membro, escritorio, ehGestor, minhasAreas, sair } = useSessao();
   const local = useLocation();
   const itens = ehGestor ? MENU_GESTOR : MENU_USUARIO;
+  const [versao, setVersao] = useState('');
+  useEffect(() => { window.desktop?.versao().then(setVersao).catch(() => {}); }, []);
 
   // Reforço da geração automática: ao abrir o app, o Gestor garante as tarefas da competência atual de trabalho
   useEffect(() => {
@@ -92,6 +94,7 @@ export function Layout() {
               <Menu.Item color="red" leftSection={<IconLogout size={16} />} onClick={sair}>Sair</Menu.Item>
             </Menu.Dropdown>
           </Menu>
+          {versao && <Text size="xs" c="dimmed" ta="center" mt={6}>Versão {versao}</Text>}
         </AppShell.Section>
       </AppShell.Navbar>
       <AppShell.Main>
