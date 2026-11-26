@@ -1,4 +1,7 @@
+import { useEffect } from 'react';
 import { NavLink as RouterLink, Outlet, useLocation } from 'react-router-dom';
+import { supabase } from './lib/supabase';
+import { competenciaPadrao } from './lib/tarefas';
 import { AppShell, Avatar, Badge, Box, Group, Menu, NavLink, ScrollArea, Stack, Text, UnstyledButton } from '@mantine/core';
 import {
   IconBuilding, IconChecklist, IconChevronDown, IconLayoutDashboard, IconListDetails, IconLogout,
@@ -31,6 +34,15 @@ export function Layout() {
   const { membro, escritorio, ehGestor, minhasAreas, sair } = useSessao();
   const local = useLocation();
   const itens = ehGestor ? MENU_GESTOR : MENU_USUARIO;
+
+  // Reforço da geração automática: ao abrir o app, o Gestor garante as tarefas da competência atual de trabalho
+  useEffect(() => {
+    if (!ehGestor || !escritorio) return;
+    const chave = `gc_gerado_${escritorio.id}_${competenciaPadrao(escritorio.inicio_checklists)}`;
+    if (sessionStorage.getItem(chave)) return;
+    sessionStorage.setItem(chave, '1');
+    supabase().rpc('gerar_checklists', { p_competencia: competenciaPadrao(escritorio.inicio_checklists) }).then(() => {});
+  }, [ehGestor, escritorio]);
 
   return (
     <AppShell navbar={{ width: 260, breakpoint: 0 }} padding={0}>

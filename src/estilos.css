@@ -9,3 +9,16 @@ body { background: #f6f7f9; }
 .tabela-clicavel tbody tr { cursor: pointer; }
 .tabela-clicavel tbody tr:hover { background: var(--mantine-color-indigo-0); }
 .nowrap { white-space: nowrap; }
+
+/* Grade empresas x obrigações */
+.grade { border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.grade th, .grade td { border-bottom: 1px solid var(--mantine-color-gray-2); padding: 4px 6px; text-align: center; }
+.grade .grade-empresa { position: sticky; left: 0; z-index: 1; background: var(--mantine-color-body); text-align: left; min-width: 240px; max-width: 280px; border-right: 1px solid var(--mantine-color-gray-3); padding: 6px 12px; }
+.grade thead th { position: sticky; top: 0; background: var(--mantine-color-body); z-index: 2; vertical-align: bottom; }
+.grade thead .grade-empresa { z-index: 3; }
+.grade-coluna { height: 150px; min-width: 38px; }
+.grade-coluna span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; font-weight: 500; font-size: 12px; color: var(--mantine-color-dimmed); max-height: 140px; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+.grade-vazia { color: var(--mantine-color-gray-4); }
+.grade tbody tr:hover th, .grade tbody tr:hover td { background: var(--mantine-color-indigo-0); }
+.grade-botao { display: inline-flex; padding: 3px; border-radius: 6px; }
+.grade-botao:hover { outline: 2px solid var(--mantine-color-indigo-4); }

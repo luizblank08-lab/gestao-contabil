@@ -1,5 +1,6 @@
 // Processo principal do Electron: cria a janela do aplicativo.
-const { app, BrowserWindow, shell, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, Menu, dialog } = require('electron');
+const fs = require('fs');
 const path = require('path');
 
 // A identificação do navegador (User-Agent) inclui o nome do app, "Gestão Contábil".
@@ -69,6 +70,22 @@ app.on('second-instance', () => {
 });
 
 ipcMain.handle('app:versao', () => app.getVersion());
+
+// Salvar anexo: abre a janela "Salvar como" do sistema com o nome original do arquivo
+ipcMain.handle('arquivo:salvar', async (_e, nome, dados) => {
+  const seguro = String(nome || 'arquivo').replace(/[\\/:*?"<>|]/g, '_').slice(0, 200);
+  const r = await dialog.showSaveDialog(janela, {
+    title: 'Salvar anexo',
+    defaultPath: path.join(app.getPath('downloads'), seguro),
+    buttonLabel: 'Salvar',
+  });
+  if (r.canceled || !r.filePath) return null;
+  await fs.promises.writeFile(r.filePath, Buffer.from(dados));
+  return r.filePath;
+});
+ipcMain.handle('arquivo:mostrar', (_e, caminho) => {
+  if (typeof caminho === 'string' && fs.existsSync(caminho)) shell.showItemInFolder(caminho);
+});
 
 app.whenReady().then(() => {
   if (process.platform === 'win32') app.setAppUserModelId('br.com.gestaocontabil.app');

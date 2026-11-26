@@ -5,6 +5,7 @@ export type Escritorio = {
   nome: string;
   cnpj: string | null;
   areas_ativas: Area[];
+  inicio_checklists: string;
 };
 
 export type Membro = {
@@ -71,3 +72,44 @@ export type Modelo = {
 };
 
 export type Excecao = { empresa_id: string; modelo_id: string; incluir: boolean };
+
+export type StatusTarefa = 'pendente' | 'feito' | 'nao_se_aplica';
+
+export type Tarefa = {
+  id: string;
+  escritorio_id: string;
+  empresa_id: string;
+  modelo_id: string | null;
+  competencia: string;
+  periodo_ref: string;
+  periodicidade: Periodicidade;
+  area: Area;
+  nome: string;
+  vencimento: string;
+  responsavel_id: string | null;
+  status: StatusTarefa;
+  concluido_em: string | null;
+  concluido_por: string | null;
+  observacao: string | null;
+  atualizado_em: string;
+};
+
+export type Anexo = {
+  id: string;
+  tarefa_id: string;
+  caminho: string;
+  nome_arquivo: string;
+  tamanho: number | null;
+  tipo: string | null;
+  enviado_por: string | null;
+  criado_em: string;
+};
+
+export type HistoricoTarefa = {
+  id: number;
+  tarefa_id: string;
+  membro_id: string | null;
+  acao: string;
+  detalhe: string | null;
+  criado_em: string;
+};

@@ -169,6 +169,8 @@ let browserGlobal;
   await pf.getByRole('button', { name: 'Salvar e continuar' }).click();
   await pf.getByRole('link', { name: 'Minhas empresas', exact: true }).click();
   await pf.getByText('Loja Exemplo Ltda').waitFor();
+  await pf.getByText(/obrigação\(ões\)/).first().waitFor();
+  await pf.waitForTimeout(500);
   const cartao = await pf.locator('.mantine-Card-root').first().innerText();
   // Presumido/comércio: DCTFWeb, Reinf, EFD ICMS/IPI, EFD Contribuições, PIS/COFINS, IRPJ/CSLL + ISS (acrescentado) - ICMS (retirado) = 7
   assert.ok(/7 obrigação\(ões\)/.test(cartao), 'fiscal vê 7 obrigações fiscais: ' + cartao);

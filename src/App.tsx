@@ -15,7 +15,9 @@ import { Configuracoes } from './pages/gestor/Configuracoes';
 import { Modelos } from './pages/gestor/Modelos';
 import { MinhasEmpresas } from './pages/usuario/MinhasEmpresas';
 import { Perfil } from './pages/usuario/Perfil';
-import { EmBreve } from './components/EmBreve';
+import { Painel } from './pages/gestor/Painel';
+import { ChecklistsMes } from './pages/gestor/ChecklistsMes';
+import { MinhasTarefas } from './pages/usuario/MinhasTarefas';
 
 function Rotas() {
   const { carregando, sessao, membro, ehGestor, sair } = useSessao();
@@ -54,9 +56,9 @@ function Rotas() {
         {ehGestor ? (
           <>
             <Route path="/" element={<Navigate to="/painel" replace />} />
-            <Route path="/painel" element={<EmBreve titulo="Painel" etapa={4} descricao="Resumo do mês com itens feitos, pendentes e atrasados, grade de empresas × obrigações e desempenho por responsável." />} />
+            <Route path="/painel" element={<Painel />} />
             <Route path="/empresas" element={<Empresas />} />
-            <Route path="/checklists" element={<EmBreve titulo="Checklists do mês" etapa={3} descricao="Os checklists de cada competência, gerados automaticamente para cada empresa ativa e já distribuídos aos responsáveis." />} />
+            <Route path="/checklists" element={<ChecklistsMes />} />
             <Route path="/modelos" element={<Modelos />} />
             <Route path="/equipe" element={<Equipe />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
@@ -65,7 +67,7 @@ function Rotas() {
         ) : (
           <>
             <Route path="/" element={<Navigate to="/tarefas" replace />} />
-            <Route path="/tarefas" element={<EmBreve titulo="Minhas tarefas" etapa={3} descricao="Suas tarefas do mês: pendentes, vencendo nos próximos 7 dias e atrasadas." />} />
+            <Route path="/tarefas" element={<MinhasTarefas />} />
             <Route path="/minhas-empresas" element={<MinhasEmpresas />} />
             <Route path="/perfil" element={<Perfil />} />
           </>

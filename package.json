@@ -1,7 +1,7 @@
 {
   "name": "gestao-contabil",
   "productName": "Gestão Contábil",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Gestão de obrigações fiscais e contábeis para escritórios de contabilidade",
   "main": "electron/main.cjs",
   "private": true,
@@ -54,6 +54,7 @@
   },
   "dependencies": {
     "@mantine/core": "^7.17.8",
+    "@mantine/dates": "^7.17.8",
     "@mantine/form": "^7.17.8",
     "@mantine/hooks": "^7.17.8",
     "@mantine/modals": "^7.17.8",

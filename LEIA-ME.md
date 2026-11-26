@@ -16,8 +16,8 @@ obrigações Fiscais, Contábeis e de Departamento Pessoal de cada empresa atend
 
 - [x] **Etapa 1** — Conta do escritório, login, perfis, equipe, cadastro de empresas, importação de planilha
 - [x] **Etapa 2** — Modelos de checklist (vencimentos com feriados nacionais, aplicação automática, exceções por empresa)
-- [ ] Etapa 3 — Checklists do mês
-- [ ] Etapa 4 — Painéis
+- [x] **Etapa 3** — Checklists do mês (geração automática diária, situação, observação, anexos, histórico, tempo real)
+- [x] **Etapa 4** — Painéis (Gestor: resumo, por área, por responsável, por empresa, grade; usuário: minhas tarefas)
 - [ ] Etapa 5 — Notificações, bandeja, iniciar com o Windows, atualização automática
 - [ ] Etapa 6 — E-mails, PDF/Excel, backup
 
@@ -59,6 +59,8 @@ npm test                     # validação de CNPJ, formatos e leitura de planil
 npm run test:banco           # regras de acesso do banco (precisa de PostgreSQL local)
 node testes/e2e-etapa1.cjs   # telas de ponta a ponta (precisa de: npx supabase start; npx vite)
 node testes/e2e-etapa2.cjs   # telas da Etapa 2 (modelos e obrigações)
+node testes/e2e-etapa3-4.cjs # telas das Etapas 3 e 4 (checklists, anexos, painéis)
+xvfb-run -a node testes/electron-salvar-anexo.cjs   # "Salvar como" no programa de computador
 ```
 
 ## Gerar o instalador
