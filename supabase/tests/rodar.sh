@@ -7,4 +7,4 @@ export PGUSER="${PGUSER:-postgres}"
 psql -d postgres -q -c "drop database if exists teste_gc" -c "create database teste_gc" 2>/dev/null
 psql -d teste_gc -q -v ON_ERROR_STOP=1 -f supabase/tests/mock_supabase.sql 2>/dev/null
 for f in supabase/migrations/*.sql; do psql -d teste_gc -q -v ON_ERROR_STOP=1 -f "$f" 2>/dev/null; done
-for t in supabase/tests/test_etapa*.sql; do psql -d teste_gc -v ON_ERROR_STOP=1 -f "$t" 2>&1 | sed "s/^psql:.*NOTICE:  //" || exit 1; done
+for t in supabase/tests/test_*.sql; do psql -d teste_gc -v ON_ERROR_STOP=1 -f "$t" 2>&1 | sed "s/^psql:.*NOTICE:  //" || exit 1; done

@@ -1,7 +1,7 @@
 // Lista de empresas com busca e filtros (Gestor).
 import { useMemo, useState } from 'react';
 import { Badge, Button, Group, Paper, Select, Stack, Table, Text, TextInput, Title } from '@mantine/core';
-import { IconFileSpreadsheet, IconPlus, IconSearch } from '@tabler/icons-react';
+import { IconFileSpreadsheet, IconHistory, IconPlus, IconSearch } from '@tabler/icons-react';
 import { useEmpresas, useMembros } from '../../lib/dados';
 import { REGIMES, rotuloRegime } from '../../lib/constantes';
 import { limparCnpj, mascaraCnpj } from '../../lib/cnpj';
@@ -10,6 +10,7 @@ import { useSessao } from '../../lib/sessao';
 import { Carregando } from '../../components/Carregando';
 import { EmpresaForm } from './EmpresaForm';
 import { ImportarPlanilha } from './ImportarPlanilha';
+import { HistoricoImportacoes } from './HistoricoImportacoes';
 import type { Empresa } from '../../lib/tipos';
 
 export function Empresas() {
@@ -25,6 +26,7 @@ export function Empresas() {
   const [aberto, setAberto] = useState(false);
   const [versaoForm, setVersaoForm] = useState(0);
   const [importando, setImportando] = useState(false);
+  const [historico, setHistorico] = useState(false);
   const [cadastro, setCadastro] = useState<string | null>(null);
 
   const nomeMembro = useMemo(() => {
@@ -70,6 +72,7 @@ export function Empresas() {
           </Text>
         </div>
         <Group>
+          <Button variant="subtle" leftSection={<IconHistory size={18} />} onClick={() => setHistorico(true)}>Histórico de importações</Button>
           <Button variant="default" leftSection={<IconFileSpreadsheet size={18} />} onClick={() => setImportando(true)}>Importar planilha</Button>
           <Button leftSection={<IconPlus size={18} />} onClick={() => abrir(null)}>Nova empresa</Button>
         </Group>
@@ -140,6 +143,7 @@ export function Empresas() {
         )}
       </Paper>
 
+      <HistoricoImportacoes aberto={historico} aoFechar={() => setHistorico(false)} membros={membros} />
       <ImportarPlanilha aberto={importando} aoFechar={() => setImportando(false)} membros={membros} empresas={empresas} />
       <EmpresaForm key={versaoForm} aberto={aberto} aoFechar={() => setAberto(false)} empresa={editando} membros={membros} />
     </Stack>

@@ -90,10 +90,10 @@ export function ImportarPlanilha({
         resp_contabil_id: (l.responsaveis.contabil && vinculo[l.responsaveis.contabil]) || '',
         resp_dp_id: (l.responsaveis.dp && vinculo[l.responsaveis.dp]) || '',
       }));
-    const { data, error } = await supabase().rpc('importar_empresas', { p_itens: itens });
+    const { data, error } = await supabase().rpc('importar_empresas', { p_itens: itens, p_nome_arquivo: arquivo });
     setImportando(false);
     if (error) return avisoErro(error);
-    avisoSucesso(`Importação concluída: ${data.criadas} empresa(s) nova(s) e ${data.atualizadas} atualizada(s).`);
+    avisoSucesso(`Importação concluída: ${data.criadas} empresa(s) nova(s) e ${data.atualizadas} atualizada(s). Se errou, dá para desfazer em "Histórico de importações".`);
     aoFechar();
   }
 
