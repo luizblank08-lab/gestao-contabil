@@ -5,7 +5,7 @@ import { competenciaPadrao } from './lib/tarefas';
 import { AppShell, Avatar, Badge, Box, Group, Menu, NavLink, ScrollArea, Stack, Text, UnstyledButton } from '@mantine/core';
 import {
   IconBuilding, IconChecklist, IconChevronDown, IconLayoutDashboard, IconListDetails, IconLogout,
-  IconSettings, IconTemplate, IconUser, IconUsers,
+  IconSettings, IconSparkles, IconTemplate, IconUser, IconUsers,
 } from '@tabler/icons-react';
 import { Marca } from './components/Marca';
 import { useSessao } from './lib/sessao';
@@ -16,12 +16,14 @@ const MENU_GESTOR = [
   { para: '/empresas', rotulo: 'Empresas', icone: IconBuilding },
   { para: '/checklists', rotulo: 'Checklists do mês', icone: IconChecklist },
   { para: '/modelos', rotulo: 'Modelos de checklist', icone: IconTemplate },
+  { para: '/conferencia-ia', rotulo: 'Conferência com IA', icone: IconSparkles },
   { para: '/equipe', rotulo: 'Equipe', icone: IconUsers },
   { para: '/configuracoes', rotulo: 'Configurações', icone: IconSettings },
 ];
 const MENU_USUARIO = [
   { para: '/tarefas', rotulo: 'Minhas tarefas', icone: IconListDetails },
   { para: '/minhas-empresas', rotulo: 'Minhas empresas', icone: IconBuilding },
+  { para: '/conferencia-ia', rotulo: 'Conferência com IA', icone: IconSparkles },
   { para: '/perfil', rotulo: 'Perfil', icone: IconUser },
 ];
 

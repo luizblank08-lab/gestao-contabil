@@ -7,7 +7,7 @@ import {
 import { DateInput } from '@mantine/dates';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconArrowBackUp, IconDownload, IconFile, IconPaperclip, IconTrash, IconUpload } from '@tabler/icons-react';
+import { IconArrowBackUp, IconDownload, IconFile, IconPaperclip, IconSparkles, IconTrash, IconUpload } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { supabase } from '../lib/supabase';
 import { alterarTarefa, baixarAnexo, enviarAnexo, removerAnexo } from '../lib/acoesTarefa';
@@ -19,6 +19,8 @@ import { mascaraCnpj } from '../lib/cnpj';
 import { useSessao } from '../lib/sessao';
 import type { Anexo, Empresa, HistoricoTarefa, Membro, StatusTarefa, Tarefa } from '../lib/tipos';
 import { SituacaoBadge } from './SituacaoBadge';
+import { BadgeConclusao, ConferenciaIAModal, ResultadoConferencia } from './ConferenciaIA';
+import { rotuloTipoConferencia, type Conferencia } from '../lib/conferenciaIA';
 
 function textoHistorico(h: HistoricoTarefa): string {
   switch (h.acao) {
@@ -53,27 +55,33 @@ export function TarefaDrawer({
   const [arrastando, setArrastando] = useState(false);
   const [devolvendo, setDevolvendo] = useState(false);
   const [motivo, setMotivo] = useState('');
+  const [conferencias, setConferencias] = useState<Conferencia[]>([]);
+  const [conferindo, setConferindo] = useState(false);
+  const [conferenciaAberta, setConferenciaAberta] = useState<Conferencia | null>(null);
   const entrada = useRef<HTMLInputElement>(null);
   const nomeMembro = (id: string | null) => (id ? membros.find((m) => m.id === id)?.nome ?? 'Usuário removido' : 'Sistema');
 
   const carregar = useCallback(async () => {
     if (!tarefaId) return;
     const sb = supabase();
-    const [t, a, h] = await Promise.all([
+    const [t, a, h, c] = await Promise.all([
       sb.from('tarefas').select('*').eq('id', tarefaId).maybeSingle(),
       sb.from('tarefa_anexos').select('*').eq('tarefa_id', tarefaId).order('criado_em'),
       sb.from('tarefa_historico').select('*').eq('tarefa_id', tarefaId).order('id', { ascending: false }),
+      sb.from('conferencias_ia').select('*').eq('tarefa_id', tarefaId).order('criado_em', { ascending: false }).limit(20),
     ]);
     if (t.error) avisoErro(t.error);
     setTarefa((t.data as Tarefa) ?? null);
     setAnexos((a.data as Anexo[]) ?? []);
     setHistorico((h.data as HistoricoTarefa[]) ?? []);
+    setConferencias((c.data as Conferencia[]) ?? []); // sem a tabela (banco desatualizado) a lista fica vazia
   }, [tarefaId]);
 
   useEffect(() => {
     setTarefa(null);
     setAnexos([]);
     setHistorico([]);
+    setConferencias([]);
     carregar();
   }, [carregar]);
   useEffect(() => setObs(tarefa?.observacao ?? ''), [tarefa?.id, tarefa?.observacao]);
@@ -86,6 +94,7 @@ export function TarefaDrawer({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas', filter: `id=eq.${tarefaId}` }, carregar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefa_anexos', filter: `tarefa_id=eq.${tarefaId}` }, carregar)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tarefa_historico', filter: `tarefa_id=eq.${tarefaId}` }, carregar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conferencias_ia', filter: `tarefa_id=eq.${tarefaId}` }, carregar)
       .subscribe();
     return () => { sb.removeChannel(canal); };
   }, [tarefaId, carregar]);
@@ -270,7 +279,10 @@ export function TarefaDrawer({
           <div>
             <Group justify="space-between" mb={6}>
               <Text size="sm" fw={500}>Anexos {anexos.length > 0 && <Text span c="dimmed">({anexos.length})</Text>}</Text>
-              <Button size="xs" variant="light" leftSection={<IconPaperclip size={14} />} onClick={() => entrada.current?.click()}>Anexar arquivo</Button>
+              <Group gap="xs">
+                <Button size="xs" variant="light" color="indigo" leftSection={<IconSparkles size={14} />} onClick={() => setConferindo(true)}>Conferir com IA</Button>
+                <Button size="xs" variant="light" leftSection={<IconPaperclip size={14} />} onClick={() => entrada.current?.click()}>Anexar arquivo</Button>
+              </Group>
             </Group>
             <input ref={entrada} type="file" multiple hidden data-testid="anexar-arquivo" onChange={(e) => { enviar(e.currentTarget.files); e.currentTarget.value = ''; }} />
             <Paper
@@ -309,6 +321,25 @@ export function TarefaDrawer({
             <Text size="xs" c="dimmed" mt={4}>Até 25 MB por arquivo.</Text>
           </div>
 
+          {conferencias.length > 0 && (
+            <div>
+              <Text size="sm" fw={500} mb={6}>Conferências com IA <Text span c="dimmed">({conferencias.length})</Text></Text>
+              <Stack gap={6}>
+                {conferencias.map((c) => (
+                  <Paper key={c.id} withBorder radius="md" p="xs" style={{ cursor: 'pointer' }} onClick={() => setConferenciaAberta(c)}>
+                    <Group justify="space-between" wrap="nowrap">
+                      <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                        <BadgeConclusao conclusao={c.conclusao} />
+                        <Text size="sm" truncate>{rotuloTipoConferencia(c.tipo)} — {c.resumo}</Text>
+                      </Group>
+                      <Text size="xs" c="dimmed" className="nowrap">{formatarDataHora(c.criado_em)}</Text>
+                    </Group>
+                  </Paper>
+                ))}
+              </Stack>
+            </div>
+          )}
+
           <Divider label="Histórico" labelPosition="left" />
           {historico.length === 0 ? <Alert color="gray" variant="light">Sem registros.</Alert> : (
             <Timeline bulletSize={14} lineWidth={2}>
@@ -322,6 +353,11 @@ export function TarefaDrawer({
           )}
         </Stack>
       )}
+      <ConferenciaIAModal aberto={conferindo} aoFechar={() => setConferindo(false)} tarefa={tarefa} anexos={anexos} aoConcluir={() => carregar()} />
+      <Modal opened={!!conferenciaAberta} onClose={() => setConferenciaAberta(null)} size={720} zIndex={400}
+        title={<Text fw={600}>Conferência com IA</Text>}>
+        {conferenciaAberta && <ResultadoConferencia conferencia={conferenciaAberta} nomeAutor={nomeMembro(conferenciaAberta.criado_por)} nomeDe={nomeMembro} />}
+      </Modal>
       <Modal opened={devolvendo} onClose={() => setDevolvendo(false)} title={<Text fw={600}>Devolver para correção</Text>} zIndex={400}>
         <Stack>
           <Text size="sm">
