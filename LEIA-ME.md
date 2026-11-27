@@ -19,7 +19,7 @@ obrigações Fiscais, Contábeis e de Departamento Pessoal de cada empresa atend
 - [x] **Etapa 2** — Modelos de checklist (vencimentos com feriados nacionais, aplicação automática, exceções por empresa)
 - [x] **Etapa 3** — Checklists do mês (geração automática diária, situação, observação, anexos, histórico, tempo real)
 - [x] **Etapa 4** — Painéis (Gestor: resumo, por área, por responsável, por empresa, grade; usuário: minhas tarefas)
-- [x] **Conferência com IA** — balancete, conciliação bancária, guias de impostos, folha ou conferência livre, a partir dos anexos da tarefa ou de arquivos do computador
+- [x] **Conferência com IA** — balancete, conciliação bancária, guias de impostos, folha ou conferência livre, a partir dos anexos da tarefa ou de arquivos do computador; depois do resultado, perguntas à IA sobre a conferência
 - [ ] Etapa 5 — Notificações, bandeja, iniciar com o Windows, atualização automática
 - [ ] Etapa 6 — E-mails, PDF/Excel, backup
 
@@ -49,10 +49,12 @@ obrigações Fiscais, Contábeis e de Departamento Pessoal de cada empresa atend
      `supabase/functions/conferencia-ia/index.ts`, clique em *Deploy* e desligue **"Verify JWT"** (a função confere quem chama).
    - Opcionais (também em *Secrets*): `CONFERENCIA_IA_MODELO` (padrão `claude-opus-5-5`), `CONFERENCIA_IA_ESFORCO`
      (`low`, `medium`, `high` — padrão —, `xhigh`, `max`; mais esforço = mais cuidado, mais tempo e mais custo) e
-     `CONFERENCIA_IA_LIMITE_DIA` (conferências por pessoa por dia, padrão 30).
+     `CONFERENCIA_IA_LIMITE_DIA` (conferências + perguntas por pessoa por dia, padrão 30).
 
-> Sobre a conferência com IA: os arquivos escolhidos são enviados à Anthropic só para aquela conferência; o
-> resultado fica no histórico (*Conferência com IA*), visível ao Gestor, a quem pediu e a quem pode ver a empresa/tarefa.
+> Sobre a conferência com IA: os arquivos escolhidos são enviados à Anthropic só para aquela conferência e para as
+> perguntas feitas sobre ela. Eles ficam guardados no Supabase, num armazenamento privado (`conferencias`) que só a
+> função acessa, até a conferência ser apagada. O resultado e as perguntas ficam no histórico (*Conferência com IA*),
+> visíveis ao Gestor, a quem pediu e a quem pode ver a empresa/tarefa.
 > A IA é um apoio à revisão e pode errar — ela nunca muda a situação de uma tarefa. Cada conferência é cobrada pela
 > Anthropic conforme o tamanho dos arquivos (acompanhe em console.anthropic.com). No plano gratuito do Supabase uma
 > função pode rodar por até 150 segundos; se conferências grandes não terminarem, envie menos arquivos por vez ou

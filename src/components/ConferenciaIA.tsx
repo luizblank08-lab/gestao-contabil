@@ -1,18 +1,20 @@
 // Conferência contábil com IA: janela para pedir a conferência e exibição do resultado.
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert, Badge, Button, Checkbox, Group, Loader, Modal, Paper, Select, Stack, Table, Text, Textarea, ThemeIcon,
 } from '@mantine/core';
 import {
-  IconAlertTriangle, IconCircleCheck, IconCircleX, IconFile, IconHelpCircle, IconPaperclip, IconSparkles, IconX,
+  IconAlertTriangle, IconCircleCheck, IconCircleX, IconFile, IconHelpCircle, IconMessageQuestion, IconPaperclip, IconSend, IconSparkles, IconX,
 } from '@tabler/icons-react';
 import {
   CONCLUSOES, EXTENSOES_ACEITAS, MAX_ARQUIVOS_IA, TIPOS_CONFERENCIA, classificarArquivo, conferirComIA, prepararAnexo,
-  prepararArquivo, rotuloTipoConferencia, sugerirTipo, type ArquivoPreparado, type Conferencia, type ItemConferido, type TipoConferencia,
+  perguntarIA, prepararArquivo, rotuloTipoConferencia, sugerirTipo, type PerguntaConferencia, type ArquivoPreparado, type Conferencia, type ItemConferido, type TipoConferencia,
 } from '../lib/conferenciaIA';
 import { formatarDataHora } from '../lib/formatos';
 import { tamanhoLegivel } from '../lib/tarefas';
 import type { Anexo, Empresa, Tarefa } from '../lib/tipos';
+import { supabase } from '../lib/supabase';
+import { useSessao } from '../lib/sessao';
 
 const ICONE_ITEM: Record<ItemConferido['situacao'], { icone: typeof IconCircleCheck; cor: string; rotulo: string }> = {
   ok: { icone: IconCircleCheck, cor: 'green', rotulo: 'Confere' },
@@ -28,8 +30,10 @@ export function BadgeConclusao({ conclusao }: { conclusao: Conferencia['conclusa
   return <Badge color={c.cor} variant="light">{c.label}</Badge>;
 }
 
-export function ResultadoConferencia({ conferencia, nomeEmpresa, nomeAutor }: {
+export function ResultadoConferencia({ conferencia, nomeEmpresa, nomeAutor, nomeDe }: {
   conferencia: Conferencia; nomeEmpresa?: string; nomeAutor?: string;
+  /** Nome de quem fez cada pergunta (opcional) */
+  nomeDe?: (id: string) => string;
 }) {
   const r = conferencia.resultado;
   return (
@@ -108,7 +112,91 @@ export function ResultadoConferencia({ conferencia, nomeEmpresa, nomeAutor }: {
       <Text size="xs" c="dimmed">
         Conferência feita por IA: é um apoio à revisão e pode errar. Confirme as divergências antes de corrigir lançamentos ou guias.
       </Text>
+
+      {conferencia.id && <PerguntasConferencia conferenciaId={conferencia.id} nomeDe={nomeDe} />}
     </Stack>
+  );
+}
+
+/** Perguntas sobre a conferência: a IA responde olhando os mesmos arquivos e o resultado. */
+export function PerguntasConferencia({ conferenciaId, nomeDe }: { conferenciaId: string; nomeDe?: (id: string) => string }) {
+  const { membro: eu } = useSessao();
+  const [lista, setLista] = useState<PerguntaConferencia[]>([]);
+  const [texto, setTexto] = useState('');
+  const [enviando, setEnviando] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  const carregar = useCallback(async () => {
+    const { data } = await supabase().from('conferencia_perguntas').select('*').eq('conferencia_id', conferenciaId).order('criado_em');
+    setLista((data as PerguntaConferencia[]) ?? []);
+  }, [conferenciaId]);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  async function perguntar() {
+    const p = texto.trim();
+    if (p.length < 3) return setErro('Escreva a pergunta.');
+    setErro(null);
+    setAviso(null);
+    setEnviando(p);
+    setTexto('');
+    try {
+      const r = await perguntarIA(conferenciaId, p);
+      setLista((l) => [...l, r.pergunta]);
+      setAviso(r.aviso ?? null);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+      setTexto(p);
+    } finally {
+      setEnviando(null);
+    }
+  }
+
+  const autor = (id: string) => (id === eu?.id ? 'Você' : nomeDe?.(id) ?? 'Equipe');
+
+  return (
+    <div>
+      <Group gap={6} mb={6}>
+        <IconMessageQuestion size={18} color="var(--mantine-color-indigo-6)" />
+        <Text fw={600}>Perguntas sobre esta conferência</Text>
+      </Group>
+      <Stack gap="xs">
+        {lista.map((q) => (
+          <Stack key={q.id ?? q.criado_em} gap={4}>
+            <Paper radius="md" p="xs" bg="gray.1" ml="xl">
+              <Text size="xs" c="dimmed">{autor(q.criado_por)} · {formatarDataHora(q.criado_em)}</Text>
+              <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{q.pergunta}</Text>
+            </Paper>
+            <Paper radius="md" p="xs" withBorder mr="xl">
+              <Group gap={4} mb={2}><IconSparkles size={12} color="var(--mantine-color-indigo-6)" /><Text size="xs" c="dimmed">IA</Text></Group>
+              <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{q.resposta}</Text>
+            </Paper>
+          </Stack>
+        ))}
+        {enviando && (
+          <>
+            <Paper radius="md" p="xs" bg="gray.1" ml="xl"><Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{enviando}</Text></Paper>
+            <Group gap="xs" mr="xl"><Loader size="xs" /><Text size="sm" c="dimmed">A IA está analisando os documentos…</Text></Group>
+          </>
+        )}
+        {aviso && <Alert color="yellow" variant="light">{aviso}</Alert>}
+        {erro && <Alert color="red" variant="light">{erro}</Alert>}
+        <Group align="flex-end" gap="xs" wrap="nowrap">
+          <Textarea
+            style={{ flex: 1 }}
+            aria-label="Pergunta para a IA"
+            placeholder={lista.length ? 'Faça outra pergunta…' : 'Ex.: de onde vem a diferença de R$ 250,00? Quais lançamentos preciso ajustar?'}
+            autosize minRows={1} maxRows={6} maxLength={2000}
+            value={texto}
+            disabled={!!enviando}
+            onChange={(e) => setTexto(e.currentTarget.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); perguntar(); } }}
+          />
+          <Button leftSection={<IconSend size={16} />} loading={!!enviando} onClick={perguntar}>Perguntar</Button>
+        </Group>
+        <Text size="xs" c="dimmed">Enter envia; Shift+Enter quebra a linha. Cada pergunta conta no limite diário de uso da IA.</Text>
+      </Stack>
+    </div>
   );
 }
 

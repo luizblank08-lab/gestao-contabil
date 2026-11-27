@@ -356,7 +356,7 @@ export function TarefaDrawer({
       <ConferenciaIAModal aberto={conferindo} aoFechar={() => setConferindo(false)} tarefa={tarefa} anexos={anexos} aoConcluir={() => carregar()} />
       <Modal opened={!!conferenciaAberta} onClose={() => setConferenciaAberta(null)} size={720} zIndex={400}
         title={<Text fw={600}>Conferência com IA</Text>}>
-        {conferenciaAberta && <ResultadoConferencia conferencia={conferenciaAberta} nomeAutor={nomeMembro(conferenciaAberta.criado_por)} />}
+        {conferenciaAberta && <ResultadoConferencia conferencia={conferenciaAberta} nomeAutor={nomeMembro(conferenciaAberta.criado_por)} nomeDe={nomeMembro} />}
       </Modal>
       <Modal opened={devolvendo} onClose={() => setDevolvendo(false)} title={<Text fw={600}>Devolver para correção</Text>} zIndex={400}>
         <Stack>

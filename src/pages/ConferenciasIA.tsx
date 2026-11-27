@@ -9,7 +9,7 @@ import { useTempoReal } from '../lib/tempoReal';
 import { useSessao } from '../lib/sessao';
 import { avisoErro } from '../lib/avisos';
 import { formatarDataHora } from '../lib/formatos';
-import { TIPOS_CONFERENCIA, rotuloTipoConferencia, type Conferencia } from '../lib/conferenciaIA';
+import { TIPOS_CONFERENCIA, apagarConferencia, rotuloTipoConferencia, type Conferencia } from '../lib/conferenciaIA';
 import { BadgeConclusao, ConferenciaIAModal, ResultadoConferencia } from '../components/ConferenciaIA';
 import { Carregando } from '../components/Carregando';
 
@@ -44,13 +44,14 @@ export function ConferenciasIA() {
   function apagar(c: Conferencia) {
     modals.openConfirmModal({
       title: 'Apagar conferência?',
-      children: <Text size="sm">A conferência de <b>{formatarDataHora(c.criado_em)}</b> sai do histórico.</Text>,
+      children: <Text size="sm">A conferência de <b>{formatarDataHora(c.criado_em)}</b>, as perguntas feitas sobre ela e os arquivos guardados para a IA serão apagados.</Text>,
       labels: { confirm: 'Apagar', cancel: 'Cancelar' },
       confirmProps: { color: 'red' },
       onConfirm: async () => {
-        const { error } = await supabase().from('conferencias_ia').delete().eq('id', c.id);
-        if (error) return avisoErro(error);
-        carregar();
+        try {
+          await apagarConferencia(c.id!);
+          carregar();
+        } catch (e) { avisoErro(e); }
       },
     });
   }
@@ -113,7 +114,7 @@ export function ConferenciasIA() {
 
       <ConferenciaIAModal aberto={nova} aoFechar={() => setNova(false)} empresas={empresas} empresaInicial={filtroEmpresa} aoConcluir={carregar} />
       <Modal opened={!!aberta} onClose={() => setAberta(null)} size={720} title={<Text fw={600} size="lg">Conferência com IA</Text>}>
-        {aberta && <ResultadoConferencia conferencia={aberta} nomeEmpresa={nomeEmpresa(aberta.empresa_id)} nomeAutor={nomeMembro(aberta.criado_por)} />}
+        {aberta && <ResultadoConferencia conferencia={aberta} nomeEmpresa={nomeEmpresa(aberta.empresa_id)} nomeAutor={nomeMembro(aberta.criado_por)} nomeDe={nomeMembro} />}
       </Modal>
     </Stack>
   );

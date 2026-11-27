@@ -8,6 +8,13 @@ const { chromium } = require('playwright');
 const assert = require('assert');
 
 const APP = process.env.APP_URL || 'http://localhost:5173';
+const API = process.env.SUPABASE_URL || 'http://127.0.0.1:54321';
+// Chave de serviço do Supabase local (só para conferir o armazenamento no teste), lida de "supabase status"
+const CHAVE_SERVICO = process.env.SUPABASE_SECRET_KEY || (() => {
+  const st = require('child_process').execSync('npx supabase status -o env', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  return /^SECRET_KEY="?([^"\n]+)"?/m.exec(st)?.[1] ?? /^SERVICE_ROLE_KEY="?([^"\n]+)"?/m.exec(st)?.[1];
+})();
+const guardado = (id) => fetch(`${API}/storage/v1/object/conferencias/${id}.json`, { headers: { apikey: CHAVE_SERVICO } });
 const FOTOS = process.env.FOTOS || null;
 const sufixo = Date.now().toString(36);
 let passo = 0;
@@ -47,9 +54,11 @@ const iaSimulada = http.createServer((req, res) => {
     pedidos.push({ url: req.url, headers: req.headers, pedido });
     const texto = JSON.stringify(pedido.messages?.[0]?.content ?? '');
     const recusar = texto.includes('RECUSAR');
+    const ehPergunta = !pedido.output_config?.format;
     const msg = { id: 'msg_teste', type: 'message', role: 'assistant', model: pedido.model, content: [], stop_reason: null, stop_sequence: null,
       usage: { input_tokens: 1200, output_tokens: 1 } };
-    const json = JSON.stringify(RESULTADO);
+    const n = pedido.messages.filter((m) => m.role === 'user').length - 1;
+    const json = ehPergunta ? `Resposta simulada ${n}: a diferença de R$ 250,00 vem da guia emitida com a receita errada.` : JSON.stringify(RESULTADO);
     sse(res, [
       ['message_start', { message: msg }],
       ...(recusar ? [] : [
@@ -137,6 +146,25 @@ let browserGlobal;
   assert.match(conteudo[1].text, /Confira o valor da guia\./);
   ok('pedido à IA: chave só no servidor, documento, empresa, tarefa e instruções no contexto');
 
+  // Perguntas sobre o resultado (a IA recebe os mesmos documentos, o resultado e as perguntas anteriores)
+  await m.getByLabel('Pergunta para a IA').fill('De onde vem a diferença de R$ 250,00?');
+  await m.getByRole('button', { name: 'Perguntar' }).click();
+  await m.getByText('Resposta simulada 1:', { exact: false }).waitFor({ timeout: 30000 });
+  await m.getByLabel('Pergunta para a IA').fill('Quais lançamentos preciso ajustar?');
+  await m.getByLabel('Pergunta para a IA').press('Enter');
+  await m.getByText('Resposta simulada 2:', { exact: false }).waitFor({ timeout: 30000 });
+  await foto(page, '63-perguntas-ia');
+  const q = pedidos[2].pedido;
+  assert.equal(q.output_config.format, undefined, 'pergunta responde em texto');
+  assert.deepEqual(q.messages.map((x) => x.role), ['user', 'assistant', 'user', 'assistant', 'user']);
+  assert.equal(q.messages[0].content[0].source.data, 'competencia;valor_apurado;valor_guia\n11/2026;1250,00;1000,00\n', 'mesmos documentos');
+  assert.deepEqual(q.messages[0].content[1].cache_control, { type: 'ephemeral' }, 'documentos ficam em cache entre as perguntas');
+  assert.deepEqual(JSON.parse(q.messages[1].content), RESULTADO, 'resultado já dado entra na conversa');
+  assert.match(q.messages[2].content, /De onde vem a diferença/);
+  assert.match(q.messages[3].content, /Resposta simulada 1/);
+  assert.match(q.messages[4].content, /Quais lançamentos preciso ajustar\?/);
+  ok('perguntas sobre o resultado: a IA recebe documentos, resultado e conversa anterior');
+
   await m.getByRole('button', { name: 'Fechar' }).click();
   await g.getByText('Conferências com IA').waitFor();
   await g.getByText(/Guias de impostos — O valor da guia do DAS/).waitFor();
@@ -151,9 +179,11 @@ let browserGlobal;
   await reg.getByText('Iara Gestora').waitFor();
   await foto(page, '62-historico-ia');
   await reg.click();
-  await page.getByRole('dialog', { name: 'Conferência com IA' }).getByText('Emita a guia complementar', { exact: false }).waitFor();
+  const v = page.getByRole('dialog', { name: 'Conferência com IA' });
+  await v.getByText('Emita a guia complementar', { exact: false }).waitFor();
+  await v.getByText('Resposta simulada 2:', { exact: false }).waitFor();
   await page.keyboard.press('Escape');
-  ok('histórico lista a conferência e abre o resultado completo');
+  ok('histórico lista a conferência e abre o resultado completo, com as perguntas');
 
   await page.getByRole('button', { name: 'Nova conferência' }).click();
   const n = page.getByRole('dialog', { name: 'Conferência com IA' });
@@ -164,10 +194,20 @@ let browserGlobal;
   await n.getByLabel('O que a IA deve conferir?').fill('RECUSAR este pedido de teste');
   await n.getByRole('button', { name: 'Conferir' }).click();
   await n.getByText('A IA não conseguiu conferir estes arquivos.', { exact: false }).waitFor({ timeout: 30000 });
-  assert.deepEqual(pedidos[1].pedido.messages[0].content[0].source, { type: 'base64', media_type: 'application/pdf', data: Buffer.from('%PDF-1.4 teste').toString('base64') });
+  assert.deepEqual(pedidos[pedidos.length - 1].pedido.messages[0].content[0].source, { type: 'base64', media_type: 'application/pdf', data: Buffer.from('%PDF-1.4 teste').toString('base64') });
   ok('conferência livre exige instruções; PDF vai como documento; recusa da IA vira aviso claro');
   await n.getByRole('button', { name: 'Cancelar' }).click();
   assert.equal(await page.locator('tbody tr').count(), 1, 'recusa não entra no histórico');
+
+  // 3. Apagar a conferência apaga também os arquivos guardados para a IA
+  const ultima = await (await fetch(`${API}/rest/v1/conferencias_ia?select=id&order=criado_em.desc&limit=1`, { headers: { apikey: CHAVE_SERVICO } })).json();
+  const idConf = ultima[0].id;
+  assert.equal((await guardado(idConf)).status, 200, 'arquivos guardados após a conferência');
+  await page.locator('tbody tr').first().getByRole('button', { name: 'Apagar conferência' }).click();
+  await page.getByRole('dialog', { name: 'Apagar conferência?' }).getByRole('button', { name: 'Apagar' }).click();
+  await page.getByText('Nenhuma conferência ainda.').waitFor();
+  assert.notEqual((await guardado(idConf)).status, 200, 'arquivos guardados foram apagados');
+  ok('apagar remove a conferência, as perguntas e os arquivos guardados');
 
   await browser.close();
   iaSimulada.close();

@@ -1669,6 +1669,9 @@ create index if not exists tarefas_devolvidas_idx on public.tarefas(escritorio_i
 --     analisados e o resultado — para consulta e auditoria.
 --   * Quem vê: o Gestor vê todas do escritório; o usuário vê as que ele fez e
 --     as das empresas/tarefas que ele pode ver.
+--   * Depois do resultado, dá para fazer perguntas sobre a conferência: a IA
+--     responde olhando os mesmos arquivos (guardados num armazenamento
+--     privado que só a função acessa) e o que já respondeu antes.
 --   * A IA é só um apoio: o resultado nunca altera a situação da tarefa.
 -- =====================================================================
 
@@ -1751,3 +1754,50 @@ create policy conferencias_delete on public.conferencias_ia for delete to authen
 
 grant select, insert, delete on public.conferencias_ia to authenticated;
 revoke all on public.conferencias_ia from anon;
+
+-- ---------------------------------------------------------------------
+-- Perguntas sobre uma conferência (conversa com a IA)
+-- Quem vê a conferência vê as perguntas; apagar a conferência apaga tudo.
+-- ---------------------------------------------------------------------
+create table if not exists public.conferencia_perguntas (
+  id              uuid primary key default gen_random_uuid(),
+  conferencia_id  uuid not null references public.conferencias_ia(id) on delete cascade,
+  pergunta        text not null check (length(trim(pergunta)) between 3 and 2000),
+  resposta        text not null,
+  modelo          text,
+  tokens_entrada  integer,
+  tokens_saida    integer,
+  criado_por      uuid not null default auth.uid() references public.membros(id) on delete cascade,
+  criado_em       timestamptz not null default now()
+);
+create index if not exists conferencia_perguntas_idx on public.conferencia_perguntas(conferencia_id, criado_em);
+create index if not exists conferencia_perguntas_autor_idx on public.conferencia_perguntas(criado_por, criado_em);
+
+alter table public.conferencia_perguntas enable row level security;
+
+-- As regras da conferência valem aqui (a subconsulta respeita as regras de conferencias_ia)
+drop policy if exists perguntas_select on public.conferencia_perguntas;
+create policy perguntas_select on public.conferencia_perguntas for select to authenticated
+  using (exists (select 1 from public.conferencias_ia c where c.id = conferencia_id));
+
+drop policy if exists perguntas_insert on public.conferencia_perguntas;
+create policy perguntas_insert on public.conferencia_perguntas for insert to authenticated
+  with check (criado_por = auth.uid() and exists (select 1 from public.conferencias_ia c where c.id = conferencia_id));
+
+grant select, insert on public.conferencia_perguntas to authenticated;
+revoke all on public.conferencia_perguntas from anon;
+
+-- ---------------------------------------------------------------------
+-- Armazenamento privado dos arquivos conferidos (para as perguntas).
+-- Sem regras para usuários: só a função "conferencia-ia" (chave de serviço)
+-- lê e grava. Caminho: <conferencia_id>.json
+-- ---------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage')
+     and exists (select 1 from information_schema.tables where table_schema = 'storage' and table_name = 'buckets') then
+    insert into storage.buckets (id, name, public, file_size_limit)
+    values ('conferencias', 'conferencias', false, 31457280)  -- até 30 MB (arquivos de uma conferência)
+    on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit;
+  end if;
+end $$;

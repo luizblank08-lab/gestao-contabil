@@ -82,9 +82,44 @@ do $$ begin
   raise exception 'FALHOU: aceitou tipo inválido';
 exception when check_violation then raise notice 'ok - tipo de conferência inválido é recusado'; end $$;
 
--- Gestor apaga
+-- ---------------- Perguntas sobre a conferência ----------------
+select set_config('teste.conf', (select id from public.conferencias_ia where tarefa_id = current_setting('teste.t')::uuid)::text, false);
+select pg_temp.como('00000000-0000-0000-0000-0000000000f2');
+insert into public.conferencia_perguntas (conferencia_id, pergunta, resposta)
+values (current_setting('teste.conf')::uuid, 'De onde vem a diferença?', 'Da guia emitida com base errada.');
+select pg_temp.check((select count(*) from public.conferencia_perguntas) = 1, 'quem vê a conferência registra e vê perguntas');
+do $$ begin
+  insert into public.conferencia_perguntas (conferencia_id, pergunta, resposta, criado_por)
+  values (current_setting('teste.conf')::uuid, 'Outra pergunta', 'x', '00000000-0000-0000-0000-00000000000a');
+  raise exception 'FALHOU: perguntou em nome de outra pessoa';
+exception when insufficient_privilege then raise notice 'ok - não registra pergunta em nome de outra pessoa'; end $$;
+do $$ begin
+  insert into public.conferencia_perguntas (conferencia_id, pergunta, resposta) values (current_setting('teste.conf')::uuid, ' ', 'x');
+  raise exception 'FALHOU: aceitou pergunta vazia';
+exception when check_violation then raise notice 'ok - pergunta vazia é recusada'; end $$;
+
+select pg_temp.como('00000000-0000-0000-0000-00000000000c');
+select pg_temp.check(not exists (select 1 from public.conferencia_perguntas), 'quem não vê a conferência não vê as perguntas');
+do $$ begin
+  insert into public.conferencia_perguntas (conferencia_id, pergunta, resposta) values (current_setting('teste.conf')::uuid, 'Posso ver?', 'x');
+  raise exception 'FALHOU: perguntou em conferência que não vê';
+exception when insufficient_privilege then raise notice 'ok - não pergunta em conferência que não vê'; end $$;
+
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select pg_temp.check(not exists (select 1 from public.conferencia_perguntas), 'outro escritório não vê as perguntas');
+
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.check((select count(*) from public.conferencia_perguntas) = 1, 'gestor vê as perguntas do escritório');
+do $$ begin
+  update public.conferencia_perguntas set resposta = 'alterada';
+  if exists (select 1 from public.conferencia_perguntas where resposta = 'alterada') then raise exception 'FALHOU: alterou resposta'; end if;
+  raise notice 'ok - respostas da IA não podem ser alteradas';
+exception when insufficient_privilege then raise notice 'ok - respostas da IA não podem ser alteradas'; end $$;
+
+-- Gestor apaga (as perguntas vão junto)
 delete from public.conferencias_ia;
 select pg_temp.check(not exists (select 1 from public.conferencias_ia), 'gestor apaga conferências');
+select pg_temp.check(not exists (select 1 from public.conferencia_perguntas), 'apagar a conferência apaga as perguntas');
 
 reset role;
 

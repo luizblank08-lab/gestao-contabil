@@ -187,11 +187,18 @@ export type PedidoConferencia = {
   arquivos: ArquivoPreparado[];
 };
 
-/** Pede a conferência à função segura. Pode levar alguns minutos. */
-export async function conferirComIA(pedido: PedidoConferencia): Promise<{ conferencia: Conferencia; aviso?: string }> {
-  const limite = conferirLimites(pedido.arquivos);
-  if (limite) throw new Error(limite);
-  const { data, error } = await supabase().functions.invoke('conferencia-ia', { body: pedido });
+export type PerguntaConferencia = {
+  id: string | null;
+  conferencia_id: string;
+  pergunta: string;
+  resposta: string;
+  criado_por: string;
+  criado_em: string;
+};
+
+/** Chama a função segura "conferencia-ia" e traduz os erros */
+async function chamarFuncao<T>(corpo: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase().functions.invoke('conferencia-ia', { body: corpo });
   if (error) {
     let mensagem = error.message;
     try {
@@ -203,8 +210,30 @@ export async function conferirComIA(pedido: PedidoConferencia): Promise<{ confer
     }
     throw new Error(mensagem);
   }
-  const corpo = typeof data === 'string' ? JSON.parse(data) : data;
-  if (corpo?.erro) throw new Error(corpo.erro);
-  if (!corpo?.conferencia) throw new Error('A conferência não retornou resultado. Tente de novo.');
-  return corpo;
+  const resposta = typeof data === 'string' ? JSON.parse(data) : data;
+  if (resposta?.erro) throw new Error(resposta.erro);
+  return resposta as T;
+}
+
+/** Pede a conferência à função segura. Pode levar alguns minutos. */
+export async function conferirComIA(pedido: PedidoConferencia): Promise<{ conferencia: Conferencia; aviso?: string }> {
+  const limite = conferirLimites(pedido.arquivos);
+  if (limite) throw new Error(limite);
+  const r = await chamarFuncao<{ conferencia?: Conferencia; aviso?: string }>({ acao: 'conferir', ...pedido });
+  if (!r.conferencia) throw new Error('A conferência não retornou resultado. Tente de novo.');
+  return r as { conferencia: Conferencia; aviso?: string };
+}
+
+/** Pergunta sobre uma conferência já feita (a IA usa os mesmos arquivos e o resultado). */
+export async function perguntarIA(conferenciaId: string, pergunta: string): Promise<{ pergunta: PerguntaConferencia; aviso?: string }> {
+  const texto = pergunta.trim();
+  if (texto.length < 3) throw new Error('Escreva a pergunta.');
+  const r = await chamarFuncao<{ pergunta?: PerguntaConferencia; aviso?: string }>({ acao: 'perguntar', conferencia_id: conferenciaId, pergunta: texto });
+  if (!r.pergunta) throw new Error('A IA não devolveu resposta. Tente de novo.');
+  return r as { pergunta: PerguntaConferencia; aviso?: string };
+}
+
+/** Apaga a conferência, as perguntas e os arquivos guardados no servidor. */
+export async function apagarConferencia(conferenciaId: string): Promise<void> {
+  await chamarFuncao({ acao: 'apagar', conferencia_id: conferenciaId });
 }

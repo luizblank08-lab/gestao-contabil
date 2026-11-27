@@ -6,13 +6,20 @@
 //   2. confere, com as regras do banco, se a pessoa pode ver a empresa/tarefa;
 //   3. pede a conferência à IA (Claude, da Anthropic) — a chave fica só aqui, em
 //      ANTHROPIC_API_KEY, nunca no programa instalado;
-//   4. grava o resultado em "conferencias_ia" e devolve para a tela.
+//   4. grava o resultado em "conferencias_ia" e devolve para a tela;
+//   5. guarda os arquivos num armazenamento privado ("conferencias"), para que
+//      as perguntas feitas depois usem os mesmos documentos.
+//
+// Ações (campo "acao" do pedido):
+//   "conferir" (padrão)  nova conferência
+//   "perguntar"          pergunta sobre uma conferência já feita
+//   "apagar"             apaga a conferência, as perguntas e os arquivos guardados
 //
 // Variáveis (Edge Functions › Secrets):
 //   ANTHROPIC_API_KEY           obrigatória
 //   CONFERENCIA_IA_MODELO       opcional (padrão: claude-opus-5-5)
 //   CONFERENCIA_IA_ESFORCO      opcional: low | medium | high | xhigh | max (padrão: high)
-//   CONFERENCIA_IA_LIMITE_DIA   opcional: conferências por pessoa por dia (padrão: 30)
+//   CONFERENCIA_IA_LIMITE_DIA   opcional: conferências + perguntas por pessoa por dia (padrão: 30)
 
 import Anthropic from "npm:@anthropic-ai/sdk@1.8.0";
 
@@ -32,6 +39,7 @@ const erro = (mensagem: string, status = 400) => resposta({ erro: mensagem }, st
 
 const URL_BASE = Deno.env.get("SUPABASE_URL")!;
 const CHAVE_PUBLICA = Deno.env.get("SUPABASE_ANON_KEY")!;
+const CHAVE_SERVICO = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MODELO = Deno.env.get("CONFERENCIA_IA_MODELO") || "claude-opus-5-5";
 const ESFORCOS = ["low", "medium", "high", "xhigh", "max"] as const;
 type Esforco = (typeof ESFORCOS)[number];
@@ -253,6 +261,72 @@ function mensagemErroIA(e: unknown): string {
   return "Erro inesperado: " + (e instanceof Error ? e.message : String(e));
 }
 
+// ---------------------------------------------------------------------
+// Armazenamento privado dos arquivos de cada conferência (só esta função acessa)
+// ---------------------------------------------------------------------
+type Guardado = { contexto: string; arquivos: ArquivoEnviado[] };
+
+function cabecalhosServico(extra: Record<string, string> = {}) {
+  const h: Record<string, string> = { apikey: CHAVE_SERVICO, ...extra };
+  if (CHAVE_SERVICO.startsWith("ey")) h.Authorization = `Bearer ${CHAVE_SERVICO}`;
+  return h;
+}
+const caminhoGuardado = (id: string) => `${URL_BASE}/storage/v1/object/conferencias/${id}.json`;
+
+async function guardarArquivos(id: string, dados: Guardado): Promise<boolean> {
+  try {
+    const r = await fetch(caminhoGuardado(id), {
+      method: "POST",
+      headers: cabecalhosServico({ "Content-Type": "application/json", "x-upsert": "true" }),
+      body: JSON.stringify(dados),
+    });
+    await r.body?.cancel();
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function lerArquivos(id: string): Promise<Guardado | null> {
+  try {
+    const r = await fetch(caminhoGuardado(id), { headers: cabecalhosServico() });
+    if (!r.ok) {
+      await r.body?.cancel();
+      return null;
+    }
+    return (await r.json()) as Guardado;
+  } catch {
+    return null;
+  }
+}
+
+async function apagarArquivos(id: string) {
+  try {
+    const r = await fetch(caminhoGuardado(id), { method: "DELETE", headers: cabecalhosServico() });
+    await r.body?.cancel();
+  } catch { /* o registro já foi apagado; o arquivo órfão não é visível a ninguém */ }
+}
+
+/** Conferências + perguntas feitas hoje (horário de Brasília) por esta pessoa */
+async function usadasHoje(banco: ReturnType<typeof comoUsuario>, membroId: string) {
+  const inicioDia = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10) + "T03:00:00Z"; // meia-noite em Brasília
+  const contar = async (tabela: string) => {
+    const r = await banco(`/rest/v1/${tabela}?select=id&criado_por=eq.${membroId}&criado_em=gte.${inicioDia}&limit=1`, {
+      prefer: "count=exact",
+    });
+    return Number((r.headers.get("content-range") ?? "").split("/")[1] ?? 0) || 0;
+  };
+  const [c, p] = await Promise.all([contar("conferencias_ia"), contar("conferencia_perguntas")]);
+  return c + p;
+}
+
+const INSTRUCAO_PERGUNTA = `Responda à pergunta abaixo sobre esta conferência, com base nos documentos e no resultado que você já deu.
+Responda em português do Brasil, em texto simples (sem markdown, sem tabelas), de forma direta e curta.
+Mostre as contas quando ajudar e diga onde está cada informação (arquivo, página, conta ou linha).
+Se os documentos não permitirem responder, diga o que faltaria. Se perceber que errou antes, corrija.
+
+Pergunta:`;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return erro("Método não permitido.", 405);
@@ -280,6 +354,11 @@ Deno.serve(async (req) => {
     } catch {
       return erro("Requisição inválida.");
     }
+
+    const acao = String(body.acao ?? "conferir");
+    if (acao === "perguntar") return await perguntar(body, banco, membro);
+    if (acao === "apagar") return await apagar(body, banco);
+    if (acao !== "conferir") return erro("Ação desconhecida.");
 
     const tipo = String(body.tipo ?? "");
     if (!TIPOS[tipo]) return erro("Escolha o tipo de conferência.");
@@ -309,18 +388,14 @@ Deno.serve(async (req) => {
     }
 
     // Limite diário por pessoa (controle de custo)
-    const inicioDia = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10) + "T03:00:00Z"; // meia-noite em Brasília
-    const rC = await banco(
-      `/rest/v1/conferencias_ia?select=id&criado_por=eq.${membro.id}&criado_em=gte.${inicioDia}&limit=1`,
-      { prefer: "count=exact" },
-    );
-    const usadas = Number((rC.headers.get("content-range") ?? "").split("/")[1] ?? 0);
-    if (usadas >= LIMITE_DIA) return erro(`Você atingiu o limite de ${LIMITE_DIA} conferências por dia. Tente amanhã.`, 429);
+    if ((await usadasHoje(banco, membro.id)) >= LIMITE_DIA) {
+      return erro(`Você atingiu o limite de ${LIMITE_DIA} conferências/perguntas por dia. Tente amanhã.`, 429);
+    }
 
     // Monta o pedido
-    const contexto: string[] = [`Tipo de conferência: ${TIPOS[tipo].nome}.`];
+    const linhas: string[] = [`Tipo de conferência: ${TIPOS[tipo].nome}.`];
     if (empresa) {
-      contexto.push(
+      linhas.push(
         `Empresa: ${empresa.razao_social}` +
           (empresa.cnpj ? ` — CNPJ ${empresa.cnpj}` : "") +
           (empresa.regime ? ` — ${ROTULO_REGIME[empresa.regime] ?? empresa.regime}` : "") +
@@ -330,12 +405,13 @@ Deno.serve(async (req) => {
       );
     }
     if (tarefa) {
-      contexto.push(`Tarefa do checklist: ${tarefa.nome} (área ${tarefa.area}, competência ${String(tarefa.competencia).slice(0, 7)}, vencimento ${tarefa.vencimento}).`);
+      linhas.push(`Tarefa do checklist: ${tarefa.nome} (área ${tarefa.area}, competência ${String(tarefa.competencia).slice(0, 7)}, vencimento ${tarefa.vencimento}).`);
     }
-    contexto.push(`Arquivos enviados: ${arquivos.map((a) => a.nome).join("; ")}.`);
-    contexto.push(`\nRoteiro de conferência:\n${TIPOS[tipo].roteiro}`);
-    if (instrucoes) contexto.push(`\nInstruções da pessoa que pediu a conferência:\n${instrucoes}`);
-    contexto.push("\nConfira os documentos acima e responda no formato pedido.");
+    linhas.push(`Arquivos enviados: ${arquivos.map((a) => a.nome).join("; ")}.`);
+    linhas.push(`\nRoteiro de conferência:\n${TIPOS[tipo].roteiro}`);
+    if (instrucoes) linhas.push(`\nInstruções da pessoa que pediu a conferência:\n${instrucoes}`);
+    linhas.push("\nConfira os documentos acima e responda no formato pedido.");
+    const contexto = linhas.join("\n");
 
     const ia = new Anthropic(); // lê ANTHROPIC_API_KEY
 
@@ -346,8 +422,8 @@ Deno.serve(async (req) => {
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default", // se o modelo principal recusar, outro modelo tenta (definido pela Anthropic)
         output_config: { effort: ESFORCO, format: { type: "json_schema", schema: ESQUEMA } },
-        system: [{ type: "text", text: SISTEMA, cache_control: { type: "ephemeral" } }],
-        messages: [{ role: "user", content: [...blocosDosArquivos(arquivos), { type: "text", text: contexto.join("\n") }] }],
+        system: [{ type: "text", text: SISTEMA }],
+        messages: [{ role: "user", content: primeiraMensagem(arquivos, contexto) }],
       });
       const msg = await stream.finalMessage();
 
@@ -372,7 +448,7 @@ Deno.serve(async (req) => {
         resumo: String(resultado.resumo ?? "").slice(0, 2000),
         resultado,
         modelo: msg.model,
-        tokens_entrada: (msg.usage.input_tokens ?? 0) + (msg.usage.cache_read_input_tokens ?? 0) + (msg.usage.cache_creation_input_tokens ?? 0),
+        tokens_entrada: totalEntrada(msg.usage),
         tokens_saida: msg.usage.output_tokens,
         criado_por: membro.id,
       };
@@ -381,9 +457,95 @@ Deno.serve(async (req) => {
         // A conferência foi feita: devolve o resultado mesmo sem conseguir registrar
         return { conferencia: { ...registro, id: null, criado_em: new Date().toISOString() }, aviso: "Resultado não foi salvo no histórico." };
       }
-      return { conferencia: Array.isArray(rI.dados) ? rI.dados[0] : rI.dados };
+      const salva = Array.isArray(rI.dados) ? rI.dados[0] : rI.dados;
+      const guardou = await guardarArquivos(salva.id, { contexto, arquivos });
+      return guardou
+        ? { conferencia: salva }
+        : { conferencia: salva, aviso: "Os arquivos não puderam ser guardados: perguntas sobre esta conferência usarão só o resultado." };
     });
   } catch (e) {
     return erro("Erro inesperado: " + (e instanceof Error ? e.message : String(e)), 500);
   }
 });
+
+/** Arquivos + contexto: igual na conferência e nas perguntas (aproveita o cache da IA) */
+function primeiraMensagem(arquivos: ArquivoEnviado[], contexto: string): Anthropic.Beta.BetaContentBlockParam[] {
+  return [...blocosDosArquivos(arquivos), { type: "text", text: contexto, cache_control: { type: "ephemeral" } }];
+}
+
+function totalEntrada(u: { input_tokens?: number | null; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }) {
+  return (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+}
+
+async function perguntar(body: Record<string, any>, banco: ReturnType<typeof comoUsuario>, membro: { id: string }) {
+  const id = String(body.conferencia_id ?? "");
+  if (!uuid.test(id)) return erro("Conferência inválida.");
+  const pergunta = String(body.pergunta ?? "").trim();
+  if (pergunta.length < 3) return erro("Escreva a pergunta.");
+  if (pergunta.length > 2000) return erro("A pergunta pode ter até 2.000 caracteres.");
+
+  // As regras do banco decidem se a pessoa vê esta conferência
+  const rC = await banco(`/rest/v1/conferencias_ia?id=eq.${id}&select=id,resultado,tipo`);
+  const conf = Array.isArray(rC.dados) ? rC.dados[0] : null;
+  if (!conf) return erro("Conferência não encontrada ou sem permissão.", 404);
+  if ((await usadasHoje(banco, membro.id)) >= LIMITE_DIA) {
+    return erro(`Você atingiu o limite de ${LIMITE_DIA} conferências/perguntas por dia. Tente amanhã.`, 429);
+  }
+  const rP = await banco(`/rest/v1/conferencia_perguntas?conferencia_id=eq.${id}&select=pergunta,resposta&order=criado_em&limit=30`);
+  const anteriores: { pergunta: string; resposta: string }[] = Array.isArray(rP.dados) ? rP.dados : [];
+  const guardado = await lerArquivos(id);
+
+  // A conversa: documentos + resultado já dado + perguntas anteriores + a nova pergunta
+  const primeira: Anthropic.Beta.BetaContentBlockParam[] = guardado
+    ? primeiraMensagem(guardado.arquivos, guardado.contexto)
+    : [{ type: "text", text: `Os arquivos desta conferência (${TIPOS[conf.tipo]?.nome ?? conf.tipo}) não estão mais disponíveis; use apenas o resultado abaixo.` }];
+  const mensagens: Anthropic.Beta.BetaMessageParam[] = [
+    { role: "user", content: primeira },
+    { role: "assistant", content: JSON.stringify(conf.resultado) },
+  ];
+  for (const a of anteriores) {
+    mensagens.push({ role: "user", content: `${INSTRUCAO_PERGUNTA}\n${a.pergunta}` });
+    mensagens.push({ role: "assistant", content: a.resposta });
+  }
+  mensagens.push({ role: "user", content: `${INSTRUCAO_PERGUNTA}\n${pergunta}` });
+
+  const ia = new Anthropic();
+  return respostaDemorada(async () => {
+    const stream = ia.beta.messages.stream({
+      model: MODELO,
+      max_tokens: 16000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: ESFORCO },
+      system: [{ type: "text", text: SISTEMA }],
+      messages: mensagens,
+    });
+    const msg = await stream.finalMessage();
+    if (msg.stop_reason === "refusal") return { erro: "A IA não conseguiu responder a esta pergunta. Reformule e tente de novo." };
+    const resposta = msg.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
+    if (!resposta) return { erro: "A IA não devolveu resposta. Tente de novo." };
+    const registro = {
+      conferencia_id: id,
+      pergunta,
+      resposta: msg.stop_reason === "max_tokens" ? resposta + "\n[resposta cortada por ser longa demais]" : resposta,
+      modelo: msg.model,
+      tokens_entrada: totalEntrada(msg.usage),
+      tokens_saida: msg.usage.output_tokens,
+      criado_por: membro.id,
+    };
+    const rI = await banco(`/rest/v1/conferencia_perguntas`, { method: "POST", prefer: "return=representation", body: JSON.stringify(registro) });
+    if (!rI.ok) return { pergunta: { ...registro, id: null, criado_em: new Date().toISOString() }, aviso: "A resposta não foi salva no histórico." };
+    return { pergunta: Array.isArray(rI.dados) ? rI.dados[0] : rI.dados, ...(guardado ? {} : { aviso: "Os arquivos desta conferência não estão guardados: a resposta usou só o resultado." }) };
+  });
+}
+
+async function apagar(body: Record<string, any>, banco: ReturnType<typeof comoUsuario>) {
+  const id = String(body.conferencia_id ?? "");
+  if (!uuid.test(id)) return erro("Conferência inválida.");
+  // As regras do banco decidem quem pode apagar (quem fez ou o Gestor)
+  const r = await banco(`/rest/v1/conferencias_ia?id=eq.${id}`, { method: "DELETE", prefer: "return=representation" });
+  if (!r.ok) return erro("Não foi possível apagar a conferência.");
+  if (!Array.isArray(r.dados) || r.dados.length === 0) return erro("Conferência não encontrada ou sem permissão para apagar.", 404);
+  await apagarArquivos(id);
+  return resposta({ ok: true });
+}
