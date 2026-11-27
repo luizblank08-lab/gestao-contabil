@@ -63,6 +63,7 @@ export function TabelaTarefas({
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" lineClamp={1}>{t.nome}</Text>
+                    {s === 'devolvida' && t.motivo_devolucao && <Text size="xs" c="grape.8" lineClamp={1}>↩ {t.motivo_devolucao}</Text>}
                     <Group gap={4}>
                       <Badge size="xs" variant="light" color={corArea(t.area)}>{rotuloArea(t.area)}</Badge>
                       <Text size="xs" c="dimmed">{rotuloPeriodo(t)}</Text>

@@ -87,7 +87,7 @@ export function ChecklistsMes() {
       {!carregando && tarefas.length > 0 && (
         <Group gap="xs">
           <Text size="sm" c="dimmed">{r.total} tarefa(s) · {r.percentual}% concluído ·</Text>
-          {([['atrasado', r.atrasado], ['vence_logo', r.venceLogo], ['pendente', r.pendente], ['feito', r.feito], ['nao_se_aplica', r.naoSeAplica]] as [Situacao, number][])
+          {([['devolvida', r.devolvida], ['atrasado', r.atrasado], ['vence_logo', r.venceLogo], ['pendente', r.pendente], ['feito', r.feito], ['nao_se_aplica', r.naoSeAplica]] as [Situacao, number][])
             .filter(([, n]) => n > 0)
             .map(([s, n]) => (
               <Group key={s} gap={4} style={{ cursor: 'pointer' }} onClick={() => setSit(sit === s ? null : s)}>

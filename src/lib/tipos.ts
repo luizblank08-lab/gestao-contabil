@@ -92,6 +92,10 @@ export type Tarefa = {
   concluido_por: string | null;
   observacao: string | null;
   atualizado_em: string;
+  devolvida_em: string | null;
+  devolvida_por: string | null;
+  motivo_devolucao: string | null;
+  devolucoes: number;
 };
 
 export type Anexo = {

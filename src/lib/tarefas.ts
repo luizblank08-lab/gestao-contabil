@@ -3,21 +3,23 @@ import dayjs from 'dayjs';
 import type { Tarefa } from './tipos';
 
 /** Situação exibida (o banco guarda pendente/feito/não se aplica; "atrasada" e "vence logo" são calculadas). */
-export type Situacao = 'feito' | 'nao_se_aplica' | 'atrasado' | 'vence_logo' | 'pendente';
+export type Situacao = 'devolvida' | 'feito' | 'nao_se_aplica' | 'atrasado' | 'vence_logo' | 'pendente';
 
 export const SITUACOES: Record<Situacao, { rotulo: string; cor: string; ordem: number }> = {
-  atrasado: { rotulo: 'Atrasada', cor: '#dc3c3d', ordem: 0 },
-  vence_logo: { rotulo: 'Vence em até 7 dias', cor: '#f18a59', ordem: 1 },
-  pendente: { rotulo: 'Pendente', cor: '#fbb315', ordem: 2 },
-  feito: { rotulo: 'Feita', cor: '#0aac23', ordem: 3 },
-  nao_se_aplica: { rotulo: 'Não se aplica', cor: '#9aa0a6', ordem: 4 },
+  devolvida: { rotulo: 'Devolvida p/ correção', cor: '#8e44ad', ordem: 0 },
+  atrasado: { rotulo: 'Atrasada', cor: '#dc3c3d', ordem: 1 },
+  vence_logo: { rotulo: 'Vence em até 7 dias', cor: '#f18a59', ordem: 2 },
+  pendente: { rotulo: 'Pendente', cor: '#fbb315', ordem: 3 },
+  feito: { rotulo: 'Feita', cor: '#0aac23', ordem: 4 },
+  nao_se_aplica: { rotulo: 'Não se aplica', cor: '#9aa0a6', ordem: 5 },
 };
 
 export const hojeISO = () => dayjs().format('YYYY-MM-DD');
 
-export function situacao(t: Pick<Tarefa, 'status' | 'vencimento'>, hoje = hojeISO()): Situacao {
+export function situacao(t: Pick<Tarefa, 'status' | 'vencimento'> & { devolvida_em?: string | null }, hoje = hojeISO()): Situacao {
   if (t.status === 'feito') return 'feito';
   if (t.status === 'nao_se_aplica') return 'nao_se_aplica';
+  if (t.devolvida_em) return 'devolvida';
   if (t.vencimento < hoje) return 'atrasado';
   if (dayjs(t.vencimento).diff(dayjs(hoje), 'day') <= 7) return 'vence_logo';
   return 'pendente';
@@ -62,15 +64,18 @@ export function listaCompetencias(hoje = hojeISO(), mesesAtras = 24, mesesFrente
   return out;
 }
 
-export type Resumo = { total: number; feito: number; naoSeAplica: number; atrasado: number; venceLogo: number; pendente: number; percentual: number };
+export type Resumo = { total: number; feito: number; naoSeAplica: number; devolvida: number; atrasado: number; venceLogo: number; pendente: number; percentual: number };
+
+type TarefaResumo = Pick<Tarefa, 'status' | 'vencimento'> & { devolvida_em?: string | null };
 
 /** Conta as situações; percentual de conclusão = (feitas + não se aplica) / total */
-export function resumir(tarefas: Pick<Tarefa, 'status' | 'vencimento'>[], hoje = hojeISO()): Resumo {
-  const r: Resumo = { total: tarefas.length, feito: 0, naoSeAplica: 0, atrasado: 0, venceLogo: 0, pendente: 0, percentual: 0 };
+export function resumir(tarefas: TarefaResumo[], hoje = hojeISO()): Resumo {
+  const r: Resumo = { total: tarefas.length, feito: 0, naoSeAplica: 0, devolvida: 0, atrasado: 0, venceLogo: 0, pendente: 0, percentual: 0 };
   for (const t of tarefas) {
     const s = situacao(t, hoje);
     if (s === 'feito') r.feito++;
     else if (s === 'nao_se_aplica') r.naoSeAplica++;
+    else if (s === 'devolvida') r.devolvida++;
     else if (s === 'atrasado') r.atrasado++;
     else if (s === 'vence_logo') r.venceLogo++;
     else r.pendente++;
@@ -80,7 +85,7 @@ export function resumir(tarefas: Pick<Tarefa, 'status' | 'vencimento'>[], hoje =
 }
 
 /** Agrupa e resume por uma chave (empresa, responsável, área…) */
-export function resumirPor<T extends Pick<Tarefa, 'status' | 'vencimento'>>(tarefas: T[], chave: (t: T) => string, hoje = hojeISO()) {
+export function resumirPor<T extends TarefaResumo>(tarefas: T[], chave: (t: T) => string, hoje = hojeISO()) {
   const grupos = new Map<string, T[]>();
   for (const t of tarefas) {
     const k = chave(t);
@@ -90,7 +95,7 @@ export function resumirPor<T extends Pick<Tarefa, 'status' | 'vencimento'>>(tare
 }
 
 /** Ordenação padrão: atrasadas primeiro, depois por vencimento */
-export function ordenarTarefas<T extends Pick<Tarefa, 'status' | 'vencimento' | 'nome'>>(lista: T[], hoje = hojeISO()): T[] {
+export function ordenarTarefas<T extends TarefaResumo & Pick<Tarefa, 'nome'>>(lista: T[], hoje = hojeISO()): T[] {
   return [...lista].sort((a, b) =>
     SITUACOES[situacao(a, hoje)].ordem - SITUACOES[situacao(b, hoje)].ordem || a.vencimento.localeCompare(b.vencimento) || a.nome.localeCompare(b.nome));
 }

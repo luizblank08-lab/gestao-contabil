@@ -1,9 +1,10 @@
 // Situação da tarefa: sempre cor + ícone + texto (nunca só a cor).
 import { Badge, ThemeIcon, Tooltip } from '@mantine/core';
-import { IconAlertTriangle, IconCheck, IconClock, IconHourglassHigh, IconMinus } from '@tabler/icons-react';
+import { IconAlertTriangle, IconArrowBackUp, IconCheck, IconClock, IconHourglassHigh, IconMinus } from '@tabler/icons-react';
 import { SITUACOES, type Situacao } from '../lib/tarefas';
 
 const ICONES = {
+  devolvida: IconArrowBackUp,
   atrasado: IconAlertTriangle,
   vence_logo: IconHourglassHigh,
   pendente: IconClock,

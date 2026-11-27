@@ -97,11 +97,12 @@ export function Painel() {
             <BarraSituacoes r={r} altura={14} />
           </Paper>
 
-          <SimpleGrid cols={{ base: 2, md: 4 }}>
+          <SimpleGrid cols={{ base: 2, md: 5 }}>
             <BlocoNumero s="feito" rotulo="Feitas" valor={r.feito} detalhe={r.naoSeAplica ? `+ ${r.naoSeAplica} não se aplica` : undefined} />
             <BlocoNumero s="pendente" rotulo="Pendentes no prazo" valor={r.pendente + r.venceLogo} />
             <BlocoNumero s="vence_logo" rotulo="Vencem em até 7 dias" valor={r.venceLogo} />
             <BlocoNumero s="atrasado" rotulo="Atrasadas" valor={r.atrasado} />
+            <BlocoNumero s="devolvida" rotulo="Devolvidas p/ correção" valor={r.devolvida} />
           </SimpleGrid>
 
           <Grid gutter="md">
@@ -159,7 +160,7 @@ export function Painel() {
                         <Table.Td><Text size="sm" fw={500} c={x.chave === 'nenhum' ? 'orange.8' : undefined}>{x.nome}</Text></Table.Td>
                         <Table.Td ta="right">{x.total}</Table.Td>
                         <Table.Td ta="right">{x.feito + x.naoSeAplica}</Table.Td>
-                        <Table.Td ta="right">{x.pendente + x.venceLogo}</Table.Td>
+                        <Table.Td ta="right">{x.pendente + x.venceLogo + x.devolvida}</Table.Td>
                         <Table.Td ta="right">{x.atrasado > 0 ? <Badge color="red" variant="light" leftSection="⚠">{x.atrasado}</Badge> : 0}</Table.Td>
                         <Table.Td>
                           <Group gap={8} wrap="nowrap">
@@ -185,7 +186,7 @@ export function Painel() {
                 data={areasAtivas.map((a) => ({ value: a.value, label: `${a.label} (${filtradas.filter((t) => t.area === a.value).length})` }))} />
             </Group>
             <Group gap="md" mb="sm">
-              {(['feito', 'pendente', 'vence_logo', 'atrasado', 'nao_se_aplica'] as const).map((s) => (
+              {(['feito', 'pendente', 'vence_logo', 'atrasado', 'devolvida', 'nao_se_aplica'] as const).map((s) => (
                 <Group key={s} gap={6}>
                   <span style={{ width: 10, height: 10, borderRadius: 2, background: SITUACOES[s].cor, display: 'inline-block' }} />
                   <Text size="xs" c="dimmed">{SITUACOES[s].rotulo}</Text>

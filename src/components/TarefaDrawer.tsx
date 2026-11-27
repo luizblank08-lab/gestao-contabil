@@ -1,13 +1,13 @@
 // Detalhe de uma tarefa: situação, conclusão, observação, anexos (arrastar e soltar) e histórico.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActionIcon, Alert, Anchor, Badge, Button, Divider, Drawer, Group, Loader, Paper, SegmentedControl, Select, Stack, Text, Textarea,
+  ActionIcon, Alert, Anchor, Badge, Modal, Button, Divider, Drawer, Group, Loader, Paper, SegmentedControl, Select, Stack, Text, Textarea,
   ThemeIcon, Timeline, Tooltip,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconDownload, IconFile, IconPaperclip, IconTrash, IconUpload } from '@tabler/icons-react';
+import { IconArrowBackUp, IconDownload, IconFile, IconPaperclip, IconTrash, IconUpload } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { supabase } from '../lib/supabase';
 import { alterarTarefa, baixarAnexo, enviarAnexo, removerAnexo } from '../lib/acoesTarefa';
@@ -27,6 +27,7 @@ function textoHistorico(h: HistoricoTarefa): string {
     case 'data': return `alterou a data de conclusão para ${h.detalhe}`;
     case 'observacao': return h.detalhe ? `escreveu: "${h.detalhe}"` : 'apagou a observação';
     case 'responsavel': return `passou a tarefa para ${h.detalhe}`;
+    case 'devolvida': return `devolveu para correção: "${h.detalhe}"`;
     case 'anexo_incluido': return `anexou ${h.detalhe}`;
     case 'anexo_removido': return `removeu o anexo ${h.detalhe}`;
     default: return h.acao;
@@ -50,6 +51,8 @@ export function TarefaDrawer({
   const [salvando, setSalvando] = useState(false);
   const [enviando, setEnviando] = useState(0);
   const [arrastando, setArrastando] = useState(false);
+  const [devolvendo, setDevolvendo] = useState(false);
+  const [motivo, setMotivo] = useState('');
   const entrada = useRef<HTMLInputElement>(null);
   const nomeMembro = (id: string | null) => (id ? membros.find((m) => m.id === id)?.nome ?? 'Usuário removido' : 'Sistema');
 
@@ -135,6 +138,21 @@ export function TarefaDrawer({
     } catch (e) { avisoErro(e); }
   }
 
+  async function devolver() {
+    if (!tarefa) return;
+    if (motivo.trim().length < 3) return avisoErro(new Error('Escreva o que precisa ser corrigido.'));
+    setSalvando(true);
+    const { data, error } = await supabase().rpc('devolver_tarefa', { p_tarefa: tarefa.id, p_motivo: motivo });
+    setSalvando(false);
+    if (error) return avisoErro(error);
+    setTarefa(data as Tarefa);
+    aoAlterar?.(data as Tarefa);
+    setDevolvendo(false);
+    setMotivo('');
+    avisoSucesso(`Tarefa devolvida para ${nomeMembro(tarefa.responsavel_id)}.`);
+    carregar();
+  }
+
   function remover(a: Anexo) {
     modals.openConfirmModal({
       title: 'Remover anexo?',
@@ -177,6 +195,16 @@ export function TarefaDrawer({
             </Text>
           </div>
 
+          {tarefa.devolvida_em && tarefa.status === 'pendente' && (
+            <Alert color="grape" variant="light" icon={<IconArrowBackUp size={18} />} title="Devolvida para correção">
+              <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{tarefa.motivo_devolucao}</Text>
+              <Text size="xs" c="dimmed" mt={4}>
+                por {nomeMembro(tarefa.devolvida_por)} em {formatarDataHora(tarefa.devolvida_em)}
+                {tarefa.devolucoes > 1 && ` · ${tarefa.devolucoes}ª devolução`} — corrija e marque como feita de novo.
+              </Text>
+            </Alert>
+          )}
+
           <Paper withBorder radius="md" p="sm">
             <Group justify="space-between">
               <div>
@@ -207,6 +235,11 @@ export function TarefaDrawer({
               data={[{ value: 'pendente', label: 'Pendente' }, { value: 'feito', label: '✓ Feita' }, { value: 'nao_se_aplica', label: 'Não se aplica' }]}
               color={tarefa.status === 'feito' ? 'green' : tarefa.status === 'nao_se_aplica' ? 'gray' : 'yellow'}
             />
+            {ehGestor && tarefa.status !== 'pendente' && (
+              <Button mt="sm" size="xs" variant="light" color="grape" leftSection={<IconArrowBackUp size={14} />} onClick={() => setDevolvendo(true)}>
+                Devolver para correção
+              </Button>
+            )}
             {tarefa.status === 'feito' && (
               <Group mt="sm" align="flex-end">
                 <DateInput
@@ -289,6 +322,20 @@ export function TarefaDrawer({
           )}
         </Stack>
       )}
+      <Modal opened={devolvendo} onClose={() => setDevolvendo(false)} title={<Text fw={600}>Devolver para correção</Text>} zIndex={400}>
+        <Stack>
+          <Text size="sm">
+            A tarefa volta a ficar <b>pendente</b> para <b>{tarefa ? nomeMembro(tarefa.responsavel_id) : ''}</b>, em destaque como
+            devolvida e com a sua observação.
+          </Text>
+          <Textarea label="O que precisa ser corrigido?" placeholder="Ex.: faltou anexar o comprovante de pagamento; valor da guia diferente do apurado…"
+            autosize minRows={3} maxRows={8} data-autofocus value={motivo} onChange={(e) => setMotivo(e.currentTarget.value)} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setDevolvendo(false)}>Cancelar</Button>
+            <Button color="grape" loading={salvando} disabled={motivo.trim().length < 3} onClick={devolver}>Devolver</Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Drawer>
   );
 }

@@ -10,6 +10,8 @@ describe('situação', () => {
     expect(situacao({ status: 'pendente', vencimento: '2026-12-04' }, H)).toBe('pendente');
     expect(situacao({ status: 'feito', vencimento: '2026-01-01' }, H)).toBe('feito');
     expect(situacao({ status: 'nao_se_aplica', vencimento: '2026-01-01' }, H)).toBe('nao_se_aplica');
+    expect(situacao({ status: 'pendente', vencimento: '2026-11-01', devolvida_em: '2026-11-20T10:00:00Z' }, H)).toBe('devolvida');
+    expect(situacao({ status: 'feito', vencimento: '2026-11-01', devolvida_em: null }, H)).toBe('feito');
   });
   it('texto do prazo', () => {
     expect(textoPrazo({ status: 'pendente', vencimento: '2026-11-24' }, H)).toBe('venceu há 2 dias');
@@ -46,7 +48,7 @@ describe('indicadores', () => {
     { status: 'pendente' as const, vencimento: '2026-12-20', nome: 'e', emp: 'Y' },
   ];
   it('resumo e percentual', () => {
-    expect(resumir(lista, H)).toEqual({ total: 5, feito: 1, naoSeAplica: 1, atrasado: 1, venceLogo: 1, pendente: 1, percentual: 40 });
+    expect(resumir(lista, H)).toEqual({ total: 5, feito: 1, naoSeAplica: 1, devolvida: 0, atrasado: 1, venceLogo: 1, pendente: 1, percentual: 40 });
     expect(resumir([], H).percentual).toBe(0);
   });
   it('resumo por grupo', () => {

@@ -35,7 +35,7 @@ export function BlocoNumero({
 /** Barra dividida por situação, com legenda; o percentual é (feitas + não se aplica) / total */
 export function BarraSituacoes({ r, altura = 12, legenda = true }: { r: Resumo; altura?: number; legenda?: boolean }) {
   const partes: [Situacao, number][] = [
-    ['feito', r.feito], ['nao_se_aplica', r.naoSeAplica], ['pendente', r.pendente], ['vence_logo', r.venceLogo], ['atrasado', r.atrasado],
+    ['feito', r.feito], ['nao_se_aplica', r.naoSeAplica], ['pendente', r.pendente], ['vence_logo', r.venceLogo], ['devolvida', r.devolvida], ['atrasado', r.atrasado],
   ];
   return (
     <Stack gap={6}>
