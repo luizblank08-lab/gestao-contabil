@@ -422,3 +422,7 @@ enabled = true
 [functions.admin-usuarios]
 enabled = true
 verify_jwt = false
+
+[functions.conferencia-ia]
+enabled = true
+verify_jwt = false

@@ -19,6 +19,7 @@ import { Painel } from './pages/gestor/Painel';
 import { ChecklistsMes } from './pages/gestor/ChecklistsMes';
 import { MinhasTarefas } from './pages/usuario/MinhasTarefas';
 import { AvisoAtualizacao } from './components/AvisoAtualizacao';
+import { ConferenciasIA } from './pages/ConferenciasIA';
 
 function Rotas() {
   const { carregando, sessao, membro, ehGestor, sair } = useSessao();
@@ -61,6 +62,7 @@ function Rotas() {
             <Route path="/empresas" element={<Empresas />} />
             <Route path="/checklists" element={<ChecklistsMes />} />
             <Route path="/modelos" element={<Modelos />} />
+            <Route path="/conferencia-ia" element={<ConferenciasIA />} />
             <Route path="/equipe" element={<Equipe />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
             <Route path="/perfil" element={<Perfil />} />
@@ -70,6 +72,7 @@ function Rotas() {
             <Route path="/" element={<Navigate to="/tarefas" replace />} />
             <Route path="/tarefas" element={<MinhasTarefas />} />
             <Route path="/minhas-empresas" element={<MinhasEmpresas />} />
+            <Route path="/conferencia-ia" element={<ConferenciasIA />} />
             <Route path="/perfil" element={<Perfil />} />
           </>
         )}
